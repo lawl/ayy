@@ -110,6 +110,7 @@ err:
 	//try to clean up failed install
 	//no point in trying to handle errors in here, best effort.
 	os.Remove(iconPath)
+	os.Remove(desktopPath)
 	os.Exit(1)
 }
 
