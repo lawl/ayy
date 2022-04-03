@@ -41,7 +41,7 @@ func New(reader *io.SectionReader) (*SquashFS, error) {
 	if superblock.Flags&CompressorOptions == CompressorOptions {
 		return nil, unimplemented("CompressorOptions")
 	}
-	if superblock.Flags&UncompressedInodes == CompressorOptions {
+	if superblock.Flags&UncompressedInodes == UncompressedInodes {
 		return nil, unimplemented("UncompressedInodes")
 	}
 
