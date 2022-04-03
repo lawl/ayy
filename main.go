@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+const AppName = "ayy"
+
 var WARNING string
 var ERROR string
 var INFO string

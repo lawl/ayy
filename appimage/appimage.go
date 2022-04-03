@@ -3,6 +3,7 @@ package appimage
 import (
 	"ayy/elf"
 	"ayy/squashfs"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ type AppImage struct {
 	ImageFormatType uint
 	FS              fs.FS
 	elf             *elf.File
+	file            *os.File
 }
 
 func NewAppImage(file string) (*AppImage, error) {
@@ -28,6 +30,7 @@ func NewAppImage(file string) (*AppImage, error) {
 		return nil, err
 	}
 	ai := AppImage{}
+	ai.file = f
 	ai.elf = el
 
 	if el.ABIVersion != 0x41 || el.Pad[0] != 0x49 {
@@ -76,4 +79,15 @@ func (ai *AppImage) Sha256Sig() ([]byte, error) {
 		return b, err
 	}
 	return b, nil
+}
+
+func (ai *AppImage) CalculateSha256() ([]byte, error) {
+	h := sha256.New()
+	ai.file.Seek(0, io.SeekStart)
+	if _, err := io.Copy(h, ai.file); err != nil {
+		return nil, err
+	}
+
+	return h.Sum(nil), nil
+
 }
