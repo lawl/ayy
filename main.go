@@ -25,7 +25,15 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading update info: %s\n", err)
 		}
+		sha256sig, err := ai.Sha256Sig()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading update info: %s\n", err)
+		}
 		fmt.Printf("Update: %s\n", updInfo)
+
+		//I have found a total of ZERO appimages using this so far, very likely just won't implement
+		//there may also be better signature schemes one could implement
+		fmt.Printf("SHA256 sig: %s\n", string(sha256sig))
 	case "fs":
 
 		if len(os.Args) < 4 {

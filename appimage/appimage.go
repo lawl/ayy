@@ -69,3 +69,11 @@ func (ai *AppImage) UpdateInfo() (string, error) {
 	}
 	return string(b), nil
 }
+
+func (ai *AppImage) Sha256Sig() ([]byte, error) {
+	b, err := ai.elf.Section(".sha256_sig").Data()
+	if err != nil {
+		return b, err
+	}
+	return b, nil
+}
