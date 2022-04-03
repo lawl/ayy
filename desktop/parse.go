@@ -6,7 +6,7 @@ import (
 )
 
 //SPEC: https://specifications.freedesktop.org/desktop-entry-spec/latest/ar01s03.html
-type file struct {
+type File struct {
 	lines []any
 }
 
@@ -20,8 +20,8 @@ type group struct {
 
 type kv map[string]string
 
-func ParseEntry(content string) (*file, error) {
-	f := file{}
+func ParseEntry(content string) (*File, error) {
+	f := File{}
 	// Desktop entry files are encoded in UTF-8.
 	// A file is interpreted as a series of lines that are separated by linefeed characters.
 	// Case is significant everywhere in the file.
@@ -108,7 +108,7 @@ func ParseEntry(content string) (*file, error) {
 	return &f, nil
 }
 
-func (f *file) String() string {
+func (f *File) String() string {
 	var sb strings.Builder
 	for _, line := range f.lines {
 		switch o := line.(type) {
@@ -134,7 +134,7 @@ func (f *file) String() string {
 	return sb.String()
 }
 
-func (f *file) Groups() []*group {
+func (f *File) Groups() []*group {
 	var res []*group
 	for _, line := range f.lines {
 		if grp, ok := line.(group); ok {
@@ -144,7 +144,7 @@ func (f *file) Groups() []*group {
 	return res
 }
 
-func (f *file) Group(s string) (group *group, found bool) {
+func (f *File) Group(s string) (group *group, found bool) {
 	groups := f.Groups()
 	for _, grp := range groups {
 		if grp.Name == s {
