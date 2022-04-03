@@ -45,12 +45,17 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, ERROR+"reading update info: %s\n", err)
 		}
+		sigKey, err := ai.SigKey()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, ERROR+"reading update info: %s\n", err)
+		}
 		fmt.Printf("Image Format Type: %d\n", ai.ImageFormatType)
 		fmt.Printf("Update: %s\n", updInfo)
 
 		//I have found a total of ZERO appimages using this so far, very likely just won't implement
 		//there may also be better signature schemes one could implement
 		fmt.Printf("SHA256 sig: %s\n", string(sha256sig))
+		fmt.Printf("Sig key: %s\n", string(sigKey))
 	case "fs":
 
 		fsHelp := "usage: ayy fs /foo/bar.AppImage command\n" +

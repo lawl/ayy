@@ -81,6 +81,14 @@ func (ai *AppImage) Sha256Sig() ([]byte, error) {
 	return b, nil
 }
 
+func (ai *AppImage) SigKey() ([]byte, error) {
+	b, err := ai.elf.Section(".sig_key").Data()
+	if err != nil {
+		return b, err
+	}
+	return b, nil
+}
+
 func (ai *AppImage) CalculateSha256() ([]byte, error) {
 	h := sha256.New()
 	ai.file.Seek(0, io.SeekStart)
