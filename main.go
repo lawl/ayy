@@ -33,7 +33,7 @@ func main() {
 	switch os.Args[1] {
 	case "elf":
 		if len(os.Args) < 3 {
-			fmt.Fprintf(os.Stderr, "Usage '%s elf /foo/bar.AppImage'\n", os.Args[0])
+			fmt.Fprintf(os.Stderr, "usage: ayy elf /foo/bar.AppImage\n")
 			os.Exit(1)
 		}
 		ai := ai(os.Args[2])
@@ -45,14 +45,22 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, ERROR+"reading update info: %s\n", err)
 		}
+		fmt.Printf("Image Format Type: %d\n", ai.ImageFormatType)
 		fmt.Printf("Update: %s\n", updInfo)
 
 		//I have found a total of ZERO appimages using this so far, very likely just won't implement
 		//there may also be better signature schemes one could implement
 		fmt.Printf("SHA256 sig: %s\n", string(sha256sig))
 	case "fs":
+
+		fsHelp := "usage: ayy fs /foo/bar.AppImage command\n" +
+			"\n" +
+			"commands:\n" +
+			"  ls <path>          List files under the specified path inside the AppImage\n" +
+			"  cat <path>         Print the file at <path> inside the AppImage to stdout\n"
+
 		if len(os.Args) < 4 {
-			fmt.Fprintf(os.Stderr, "TODO Usage '%s fs /foo/bar.AppImage subcommand'\n", os.Args[0])
+			fmt.Fprintf(os.Stderr, fsHelp)
 			os.Exit(1)
 		}
 
@@ -74,19 +82,25 @@ func main() {
 			}
 			catFile(os.Args[2], cat.Arg(0))
 			os.Exit(0)
+		default:
+			fmt.Fprintf(os.Stderr, fsHelp)
+			os.Exit(1)
 		}
 
-		fmt.Fprintln(os.Stderr, "No flags passed, don't know what to do")
-		os.Exit(1)
 	case "lmao":
 		fmt.Println("ayy lmao")
 		os.Exit(0)
 	case "install":
 		if len(os.Args) < 3 {
-			fmt.Fprintf(os.Stderr, "TODO Usage '%s install /foo/bar.AppImage; can be URL!!1!'\n", os.Args[0])
+			fmt.Fprintf(os.Stderr, "usage: ayy install /foo/bar.AppImage\n"+
+				"\n"+
+				"this is currently required to be a local path, but may also allow https urls in the future. Stay tuned.\n")
 			os.Exit(1)
 		}
 		installAppimage(os.Args[2])
+	case "help", "-h", "--help":
+		globalHelp()
+		os.Exit(0)
 	default:
 		globalHelp()
 		os.Exit(1)
@@ -94,7 +108,16 @@ func main() {
 }
 
 func globalHelp() {
-	fmt.Fprint(os.Stderr, "TODO: write global command useage\n")
+	fmt.Fprint(os.Stderr,
+		"usage ayy <command>\n"+
+			"\n"+
+			"  install            Install an AppImage and integrate it into the desktop environment\n"+
+			"  fs                 Interact with an AppImage's internal filesystem\n"+
+			"  elf                Display metadata stored on the AppImage's ELF header\n"+
+			"  help               Display this help\n"+
+			"\n"+
+			"Call this commands without any arguments for per command help.\n"+
+			"")
 }
 
 func ai(path string) *appimage.AppImage {
