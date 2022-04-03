@@ -2,7 +2,6 @@ package main
 
 import (
 	"ayy/appimage"
-	"ayy/desktop"
 	"ayy/squashfs"
 	"ayy/xdg"
 	"fmt"
@@ -20,29 +19,9 @@ func installAppimage(path string) {
 	}
 	ai := ai(path)
 
-	matches, err := fs.Glob(ai.FS, "*.desktop")
+	desktop, err := ai.InternalDesktopFile()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, ERROR+"Cannot glob for desktop file: %s\n", err)
-		os.Exit(1)
-	}
-
-	if len(matches) == 0 {
-		fmt.Fprintf(os.Stderr, ERROR+"AppImage does not contain a desktop file. Integration for desktop-file less images is not supported yet.")
-		os.Exit(1)
-	}
-	internalDesktopFilePath := matches[0]
-	if len(matches) > 1 {
-		fmt.Fprintf(os.Stderr, WARNING+"Multiple .desktop files found in AppImage root, using '%s'\n", internalDesktopFilePath)
-	}
-	buf, err := fs.ReadFile(ai.FS, internalDesktopFilePath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, ERROR+"Couldn't open file: %s\n", err)
-		os.Exit(1)
-	}
-
-	desktop, err := desktop.ParseEntry(string(buf))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, ERROR+"Couldn't parse file: %s\n", err)
+		fmt.Fprintf(os.Stderr, ERROR+"Couldn't fetch internal desktop file from AppImage: %w\n", err)
 		os.Exit(1)
 	}
 

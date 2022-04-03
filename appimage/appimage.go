@@ -1,6 +1,7 @@
 package appimage
 
 import (
+	"ayy/desktop"
 	"ayy/elf"
 	"ayy/squashfs"
 	"crypto/sha256"
@@ -98,4 +99,28 @@ func (ai *AppImage) CalculateSha256() ([]byte, error) {
 
 	return h.Sum(nil), nil
 
+}
+
+func (ai *AppImage) InternalDesktopFile() (*desktop.File, error) {
+	matches, err := fs.Glob(ai.FS, "*.desktop")
+	if err != nil {
+		return nil, fmt.Errorf("Cannot glob for desktop file: %w", err)
+	}
+
+	if len(matches) == 0 {
+		return nil, errors.New("AppImage does not contain a desktop file. Integration for desktop-file less images is not supported yet.")
+	}
+	internalDesktopFilePath := matches[0]
+
+	buf, err := fs.ReadFile(ai.FS, internalDesktopFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't open file: %w\n", err)
+	}
+
+	desktop, err := desktop.ParseEntry(string(buf))
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't parse file: %w\n", err)
+	}
+
+	return desktop, nil
 }
