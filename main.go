@@ -86,12 +86,3 @@ func ai(path string) *appimage.AppImage {
 func unrootPath(s string) string {
 	return strings.TrimLeft(s, string(os.PathSeparator))
 }
-
-func installAppimage(path string) {
-	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
-		fmt.Fprintln(os.Stderr, "web fetch support coming soon(tm)")
-		os.Exit(1)
-	}
-	ai := ai(path)
-	_ = ai
-}
