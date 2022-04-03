@@ -82,7 +82,11 @@ func installAppimage(path string) {
 	err = os.Rename(path, appimgPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, ERROR+"Couldn't move AppImage from '%s' => '%s': %s\n", path, appimgPath, err)
-		goto err
+		os.Exit(1)
+	}
+
+	if err := os.Chmod(appimgPath, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, WARNING+"Couldn't set executable permissions on AppImage '%s': %s\n", appimgPath, err)
 	}
 
 	err = ioutil.WriteFile(iconPath, icon, 0644)
