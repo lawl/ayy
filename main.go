@@ -5,7 +5,9 @@ import (
 	"ayy/fancy"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -103,6 +105,8 @@ func main() {
 			os.Exit(1)
 		}
 		installAppimage(os.Args[2])
+	case "list":
+		listAppimages()
 	case "help", "-h", "--help":
 		globalHelp()
 		os.Exit(0)
@@ -117,6 +121,7 @@ func globalHelp() {
 		"usage ayy <command>\n"+
 			"\n"+
 			"  install            Install an AppImage and integrate it into the desktop environment\n"+
+			"  list               Display installed AppImages\n"+
 			"  fs                 Interact with an AppImage's internal filesystem\n"+
 			"  elf                Display metadata stored on the AppImage's ELF header\n"+
 			"  help               Display this help\n"+
@@ -136,4 +141,34 @@ func ai(path string) *appimage.AppImage {
 
 func unrootPath(s string) string {
 	return strings.TrimLeft(s, string(os.PathSeparator))
+}
+
+func listAppimages() {
+	appDir := filepath.Join(os.Getenv("HOME"), "Applications")
+	filepath.Walk(appDir, func(path string, info fs.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(info.Name(), ".AppImage") {
+			return nil
+		}
+		ai := ai(path)
+		desktop, err := ai.InternalDesktopFile()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, WARNING+"Couldn't read internal desktop file for '%s':%w\n", path, err)
+			return nil
+		}
+		entry, found := desktop.Group("Desktop Entry")
+		if !found {
+			fmt.Fprintf(os.Stderr, WARNING+"Desktop file contains no [Desktop Entry] '%s'\n", path)
+			return nil
+		}
+		fpname := fancy.Print{}
+		fpname.Color(fancy.Cyan)
+
+		fpversion := fancy.Print{}
+		fpversion.Color(fancy.Yellow)
+		fmt.Printf("Name: %s\n\tVersion: %s\n\t   Path: %s\n\n", fpname.Format(entry.KV["Name"]), fpversion.Format(entry.KV["X-AppImage-Version"]), path)
+		return nil
+	})
 }
