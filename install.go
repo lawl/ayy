@@ -66,7 +66,7 @@ func installAppimage(path string) {
 	iconDir := filepath.Join(xdg.Get(xdg.DATA_HOME), AppName, "icons")
 	ensureExists(iconDir)
 
-	desktopDir := filepath.Join(xdg.Get(xdg.DATA_HOME), "applications", "appimage")
+	desktopDir := filepath.Join(xdg.Get(xdg.DATA_HOME), "applications")
 	ensureExists(desktopDir)
 
 	aiHash, err := ai.CalculateSha256()
