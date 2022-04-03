@@ -184,11 +184,17 @@ func exists(path string) bool {
 
 func rewriteExecLine(exec, newbin string) string {
 	toks := strings.Split(exec, " ")
+	foundApprun := false
 	for i, tok := range toks {
 		if tok == "AppRun" {
 			toks[i] = newbin
+			foundApprun = true
 			break
 		}
+	}
+
+	if !foundApprun && len(toks) >= 1 {
+		toks[0] = newbin
 	}
 
 	return strings.Join(toks, " ")
