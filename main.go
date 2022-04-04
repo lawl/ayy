@@ -172,22 +172,16 @@ func listAppimages() {
 			return nil
 		}
 		ai := ai(path)
-		desktop, err := ai.DesktopFile()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, WARNING+"Couldn't read internal desktop file for '%s':%w\n", path, err)
-			return nil
-		}
-		entry, found := desktop.Group("Desktop Entry")
-		if !found {
-			fmt.Fprintf(os.Stderr, WARNING+"Desktop file contains no [Desktop Entry] '%s'\n", path)
-			return nil
-		}
+
+		name := ai.DesktopEntry("Name")
+		version := ai.DesktopEntry("X-AppImage-Version")
+
 		fpname := fancy.Print{}
 		fpname.Color(fancy.Cyan)
 
 		fpversion := fancy.Print{}
 		fpversion.Color(fancy.Yellow)
-		fmt.Printf("Name: %s\n\tVersion: %s\n\t   Path: %s\n\n", fpname.Format(entry.KV["Name"]), fpversion.Format(entry.KV["X-AppImage-Version"]), path)
+		fmt.Printf("Name: %s\n\tVersion: %s\n\t   Path: %s\n\n", fpname.Format(name), fpversion.Format(version), path)
 
 		return nil
 	})

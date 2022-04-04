@@ -97,3 +97,15 @@ func (ai *AppImage) DesktopFile() (*desktop.File, error) {
 
 	return desktop, nil
 }
+
+func (ai *AppImage) DesktopEntry(s string) (name string) {
+	desktop, err := ai.DesktopFile()
+	if err != nil {
+		return ""
+	}
+	entry, found := desktop.Group("Desktop Entry")
+	if !found {
+		return ""
+	}
+	return entry.KV[s]
+}
