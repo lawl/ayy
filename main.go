@@ -129,28 +129,50 @@ func main() {
 			fmt.Fprintf(os.Stderr, ERROR+"Cannot move AppImage to Application directory: %s\n", err)
 			os.Exit(1)
 		}
-		err = integrate.AppImage(id)
+		err = integrate.Integrate(id)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, ERROR+"Cannot integrate app image: %s\n", err)
 			os.Exit(1)
 		}
 		os.Exit(0)
+	case "uninstall":
+		if len(os.Args) < 3 {
+			fmt.Fprintf(os.Stderr, "usage: ayy uninstall <name>\n"+
+				"\n"+
+				"Hint: Find names with 'ayy list'\n")
+			os.Exit(1)
+		}
+		uninstall := flag.NewFlagSet("uninstall", flag.ExitOnError)
+		id := uninstall.String("id", "", "use id instead of name")
+		if err := uninstall.Parse(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, ERROR+"Unable to parse flags: %s\n", err)
+			os.Exit(1)
+		}
+		path := findAppImagefromCLIArgs(uninstall.Arg(0), *id)
+
+		if err := integrate.Unintegrate(path); err != nil {
+			fmt.Fprintf(os.Stderr, ERROR+"Unable to unintegrate AppImage: %s\n", err)
+			os.Exit(1)
+		}
+		if err := os.Remove(path); err != nil {
+			fmt.Fprintf(os.Stderr, ERROR+"Unable delete AppImage file '%s': %s\n", path, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	case "show":
 		if len(os.Args) < 3 {
-			fmt.Fprintf(os.Stderr, "usage: ayy show foobar\n")
+			fmt.Fprintf(os.Stderr, "usage: ayy show <name>\n"+
+				"\n"+
+				"Hint: Find names with 'ayy list'\n")
 			os.Exit(1)
 		}
-		path, found, err := integrate.FindImageByName(os.Args[2])
-		if err != nil {
-			fmt.Fprintf(os.Stderr, ERROR+"searching images: %s\n", err)
+		show := flag.NewFlagSet("show", flag.ExitOnError)
+		id := show.String("id", "", "use id instead of name")
+		if err := show.Parse(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, ERROR+"Unable to parse flags: %s\n", err)
 			os.Exit(1)
 		}
-		fp := fancy.Print{}
-		fp.Color(fancy.Cyan)
-		if !found {
-			fmt.Fprintf(os.Stderr, ERROR+"No image matching name '%s' found\n", fp.Format(os.Args[2]))
-			os.Exit(1)
-		}
+		path := findAppImagefromCLIArgs(show.Arg(0), *id)
 		printAppImageDetails(path)
 		os.Exit(0)
 	case "list":
@@ -217,11 +239,61 @@ func printAppImageDetails(path string) error {
 	version := ai.DesktopEntry("X-AppImage-Version")
 	appstreamid := ai.ID()
 
-	fpname := fancy.Print{}
-	fpname.Color(fancy.Cyan)
+	cyan := fancy.Print{}
+	cyan.Color(fancy.Cyan)
 
-	fpversion := fancy.Print{}
-	fpversion.Color(fancy.Yellow)
-	fmt.Printf("Name: %s    \n\tVersion: %s\n\t   Path: %s\n\t     ID: %s\n\n", fpname.Format(name), fpversion.Format(version), path, appstreamid)
+	yellow := fancy.Print{}
+	yellow.Color(fancy.Yellow)
+
+	no := fancy.Print{}
+	no.Color(fancy.Red).Dim().Bold()
+
+	yes := fancy.Print{}
+	yes.Color(fancy.Green).Dim().Bold()
+
+	installedStr := no.Format("no")
+	if integrate.IsIntegrated(ai) {
+		installedStr = yes.Format("yes")
+	}
+
+	fmt.Printf("Name: %s\n"+
+		"\t  Version: %s\n"+
+		"\tInstalled: %s\n"+
+		"\t     Path: %s\n"+
+		"\t       ID: %s"+
+		"\n\n",
+		cyan.Format(name), yellow.Format(version), installedStr, path, appstreamid)
 	return nil
+}
+
+func findAppImagefromCLIArgs(name, id string) string {
+	if id != "" {
+		path, found, err := integrate.FindImageById(appimage.AppImageID(id))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, ERROR+"searching images: %s\n", err)
+			os.Exit(1)
+		}
+		fp := fancy.Print{}
+		fp.Color(fancy.Cyan)
+		if !found {
+			fmt.Fprintf(os.Stderr, ERROR+"No image matching ID '%s' found\n", fp.Format(id))
+			os.Exit(1)
+		}
+
+		return path
+	}
+
+	path, found, err := integrate.FindImageByName(name)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, ERROR+"searching images: %s\n", err)
+		os.Exit(1)
+	}
+	fp := fancy.Print{}
+	fp.Color(fancy.Cyan)
+	if !found {
+		fmt.Fprintf(os.Stderr, ERROR+"No image matching name '%s' found\n", fp.Format(name))
+		os.Exit(1)
+	}
+
+	return path
 }

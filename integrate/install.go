@@ -13,20 +13,38 @@ import (
 	"strings"
 )
 
-func AppImage(id appimage.AppImageID) (err error) {
-
-	appimgPath, found, err := FindImageById(id)
+func Unintegrate(appimgPath string) error {
+	ai, err := appimage.Open(appimgPath)
 	if err != nil {
 		return err
 	}
-	if !found {
-		return errors.New("no AppImage with that ID found")
+	defer ai.Close()
+
+	iconPath := IconPath(ai)
+	desktopPath := DesktopFilePath(ai)
+
+	if exists(iconPath) {
+		if err := os.Remove(iconPath); err != nil {
+			return err
+		}
 	}
+
+	if exists(desktopPath) {
+		if err := os.Remove(desktopPath); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func Integrate(appimgPath string) (err error) {
 
 	ai, err := appimage.Open(appimgPath)
 	if err != nil {
 		return err
 	}
+	defer ai.Close()
 
 	desktop, err := ai.DesktopFile()
 	if err != nil {
@@ -48,20 +66,8 @@ func AppImage(id appimage.AppImageID) (err error) {
 		return err
 	}
 
-	// why data home and not cache? if the user clears the cache, icons break
-	// and we don't really have a mechanism to easily detect that apart from (i/fa/...)notify
-	iconDir := filepath.Join(xdg.Get(xdg.DATA_HOME), "ayy", "icons")
-	if err := ensureExists(iconDir); err != nil {
-		return err
-	}
-
-	desktopDir := filepath.Join(xdg.Get(xdg.DATA_HOME), "applications")
-	if err := ensureExists(desktopDir); err != nil {
-		return err
-	}
-
-	iconPath := filepath.Join(iconDir, fmt.Sprintf("appimage_%s%s", id, findDirIconFileExt(ai)))
-	desktopPath := filepath.Join(desktopDir, fmt.Sprintf("appimage_%s.desktop", id))
+	iconPath := IconPath(ai)
+	desktopPath := DesktopFilePath(ai)
 
 	err = ioutil.WriteFile(iconPath, icon, 0644)
 	if err != nil {
@@ -88,6 +94,25 @@ err:
 	os.Remove(iconPath)
 	os.Remove(desktopPath)
 	return err
+}
+
+func IconPath(ai *appimage.AppImage) string {
+	// why data home and not cache? if the user clears the cache, icons break
+	// and we don't really have a mechanism to easily detect that apart from (i/fa/...)notify
+	iconDir := filepath.Join(xdg.Get(xdg.DATA_HOME), "ayy", "icons")
+	if err := ensureExists(iconDir); err != nil {
+		//best effort, we'll explode later it's fine
+	}
+
+	return filepath.Join(iconDir, fmt.Sprintf("appimage_%s%s", ai.ID(), findDirIconFileExt(ai)))
+}
+
+func DesktopFilePath(ai *appimage.AppImage) string {
+	desktopDir := filepath.Join(xdg.Get(xdg.DATA_HOME), "applications")
+	if err := ensureExists(desktopDir); err != nil {
+		//best effort, we'll explode later it's fine
+	}
+	return filepath.Join(desktopDir, fmt.Sprintf("appimage_%s.desktop", ai.ID()))
 }
 
 func findDirIconFileExt(ai *appimage.AppImage) (ret string) {
@@ -174,7 +199,7 @@ func rewriteExecLine(exec, newbin string) string {
 	return strings.Join(toks, " ")
 }
 
-func MoveToApplications(appImagePath string) (appimage.AppImageID, error) {
+func MoveToApplications(appImagePath string) (string, error) {
 	appDir := filepath.Join(os.Getenv("HOME"), "Applications")
 	if err := ensureExists(appDir); err != nil {
 		return "", err
@@ -194,11 +219,12 @@ func MoveToApplications(appImagePath string) (appimage.AppImageID, error) {
 		return "", fmt.Errorf("Couldn't set executable permissions on AppImage '%s': %s\n", appImagePath, err)
 	}
 
-	ai, err := appimage.Open(newPath)
-	defer ai.Close()
-	if err != nil {
-		return "", err
-	}
+	return newPath, nil
+}
 
-	return ai.ID(), nil
+func IsIntegrated(ai *appimage.AppImage) bool {
+	icon := IconPath(ai)
+	desktop := DesktopFilePath(ai)
+
+	return exists(icon) && exists(desktop)
 }
