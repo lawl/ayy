@@ -43,15 +43,15 @@ func main() {
 		fp.Color(fancy.Cyan)
 
 		ai := ai(os.Args[2])
-		updInfo, err := ai.UpdateInfo()
+		updInfo, err := ai.ELFSectionAsString(".upd_info")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, ERROR+"reading update info: %s\n", err)
 		}
-		sha256sig, err := ai.Sha256Sig()
+		sha256sig, err := ai.ELFSectionAsString(".sha256_sig")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, ERROR+"reading update info: %s\n", err)
 		}
-		sigKey, err := ai.SigKey()
+		sigKey, err := ai.ELFSectionAsString(".sig_key")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, ERROR+"reading update info: %s\n", err)
 		}

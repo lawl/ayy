@@ -65,27 +65,8 @@ func NewAppImage(file string) (*AppImage, error) {
 
 	return &ai, nil
 }
-
-func (ai *AppImage) UpdateInfo() (string, error) {
-	b, err := ai.elf.Section(".upd_info").Data()
-	if err != nil {
-		return "", err
-	}
-	ret := strings.Trim(string(b), "\x00")
-	return ret, nil
-}
-
-func (ai *AppImage) Sha256Sig() (string, error) {
-	b, err := ai.elf.Section(".sha256_sig").Data()
-	if err != nil {
-		return "", err
-	}
-	ret := strings.Trim(string(b), "\x00")
-	return ret, nil
-}
-
-func (ai *AppImage) SigKey() (string, error) {
-	b, err := ai.elf.Section(".sig_key").Data()
+func (ai *AppImage) ELFSectionAsString(section string) (string, error) {
+	b, err := ai.elf.Section(section).Data()
 	if err != nil {
 		return "", err
 	}

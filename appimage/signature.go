@@ -11,13 +11,13 @@ import (
 
 func (ai *AppImage) Signature() (signedby openpgp.Entity, ok bool, err error) {
 
-	rawkey, err := ai.SigKey()
+	rawkey, err := ai.ELFSectionAsString(".sig_key")
 	if err != nil {
 		return openpgp.Entity{}, false, err
 	}
 	keyRingReader := strings.NewReader(rawkey)
 
-	rawsig, err := ai.Sha256Sig()
+	rawsig, err := ai.ELFSectionAsString(".sha256_sig")
 	if err != nil {
 		return openpgp.Entity{}, false, err
 	}
@@ -77,7 +77,7 @@ func (ai *AppImage) SHA256WithoutSignature() ([]byte, error) {
 }
 
 func (ai *AppImage) HasSignature() (ok bool) {
-	rawkey, _ := ai.SigKey()
-	rawsig, _ := ai.Sha256Sig()
+	rawkey, _ := ai.ELFSectionAsString(".sig_key")
+	rawsig, _ := ai.ELFSectionAsString(".sha256_sig")
 	return rawkey != "" && rawsig != ""
 }
