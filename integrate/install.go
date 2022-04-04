@@ -13,62 +13,55 @@ import (
 	"strings"
 )
 
-func AppImage(path string) (warnings []string, err error) {
+func AppImage(id appimage.AppImageID) (err error) {
 
-	ai, err := appimage.NewAppImage(path)
+	appimgPath, found, err := FindImageById(id)
 	if err != nil {
-		return warnings, err
+		return err
+	}
+	if !found {
+		return errors.New("no AppImage with that ID found")
+	}
+
+	ai, err := appimage.Open(appimgPath)
+	if err != nil {
+		return err
 	}
 
 	desktop, err := ai.DesktopFile()
 	if err != nil {
-		return warnings, errors.New("Couldn't read .desktop file. Currently unsupported. .desktop-less installs currently unsupported.")
+		return errors.New("Couldn't read .desktop file. Currently unsupported. .desktop-less installs currently unsupported.")
 	}
 
 	desktopgroup, found := desktop.Group("Desktop Entry")
 	if !found {
-		return warnings, errors.New("Couldn't find 'Desktop Entry' group in .desktop file. .desktop-less installs currently unsupported.")
+		return errors.New("Couldn't find 'Desktop Entry' group in .desktop file. .desktop-less installs currently unsupported.")
 	}
 
 	icon, err := fs.ReadFile(ai.FS, ".DirIcon")
 	if err != nil {
-		return warnings, err
+		return err
 	}
 
 	appDir := filepath.Join(os.Getenv("HOME"), "Applications")
 	if err := ensureExists(appDir); err != nil {
-		return warnings, err
+		return err
 	}
 
 	// why data home and not cache? if the user clears the cache, icons break
 	// and we don't really have a mechanism to easily detect that apart from (i/fa/...)notify
 	iconDir := filepath.Join(xdg.Get(xdg.DATA_HOME), "ayy", "icons")
 	if err := ensureExists(iconDir); err != nil {
-		return warnings, err
+		return err
 	}
 
 	desktopDir := filepath.Join(xdg.Get(xdg.DATA_HOME), "applications")
 	if err := ensureExists(desktopDir); err != nil {
-		return warnings, err
+		return err
 	}
 
-	aiHash, err := ai.SHA256WithoutSignature()
-	if err != nil {
-		return warnings, err
-	}
-
-	iconPath := filepath.Join(iconDir, fmt.Sprintf("appimage_%x%s", aiHash, findDirIconFileExt(ai)))
-	desktopPath := filepath.Join(desktopDir, fmt.Sprintf("%x.desktop", aiHash))
-	appimgPath := filepath.Join(appDir, filepath.Base(path))
-
-	err = os.Rename(path, appimgPath)
-	if err != nil {
-		return warnings, err
-	}
-
-	if err := os.Chmod(appimgPath, 0755); err != nil {
-		warnings = append(warnings, fmt.Sprintf("Couldn't set executable permissions on AppImage '%s': %s\n", appimgPath, err))
-	}
+	iconPath := filepath.Join(iconDir, fmt.Sprintf("appimage_%s%s", id, findDirIconFileExt(ai)))
+	desktopPath := filepath.Join(desktopDir, fmt.Sprintf("appimage_%s.desktop", id))
 
 	err = ioutil.WriteFile(iconPath, icon, 0644)
 	if err != nil {
@@ -87,14 +80,14 @@ func AppImage(path string) (warnings []string, err error) {
 		goto err
 	}
 
-	return
+	return nil
 
 err:
 	//try to clean up failed install
 	//no point in trying to handle errors in here, best effort.
 	os.Remove(iconPath)
 	os.Remove(desktopPath)
-	return warnings, err
+	return err
 }
 
 func findDirIconFileExt(ai *appimage.AppImage) (ret string) {
@@ -179,4 +172,33 @@ func rewriteExecLine(exec, newbin string) string {
 	}
 
 	return strings.Join(toks, " ")
+}
+
+func MoveToApplications(appImagePath string) (appimage.AppImageID, error) {
+	appDir := filepath.Join(os.Getenv("HOME"), "Applications")
+	if err := ensureExists(appDir); err != nil {
+		return "", err
+	}
+
+	newPath := filepath.Join(appDir, filepath.Base(appImagePath))
+
+	if exists(newPath) {
+		return "", errors.New("Upgrading AppImages not supported yet!")
+	}
+
+	err := os.Rename(appImagePath, newPath)
+	if err != nil {
+		return "", err
+	}
+	if err := os.Chmod(newPath, 0755); err != nil {
+		return "", fmt.Errorf("Couldn't set executable permissions on AppImage '%s': %s\n", appImagePath, err)
+	}
+
+	ai, err := appimage.Open(newPath)
+	defer ai.Close()
+	if err != nil {
+		return "", err
+	}
+
+	return ai.ID(), nil
 }

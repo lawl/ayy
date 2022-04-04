@@ -124,9 +124,38 @@ func main() {
 				"this is currently required to be a local path, but may also allow https urls in the future. Stay tuned.\n")
 			os.Exit(1)
 		}
-		integrate.AppImage(os.Args[2])
+		id, err := integrate.MoveToApplications(os.Args[2])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, ERROR+"Cannot move AppImage to Application directory: %s\n", err)
+			os.Exit(1)
+		}
+		err = integrate.AppImage(id)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, ERROR+"Cannot integrate app image: %s\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	case "show":
+		if len(os.Args) < 3 {
+			fmt.Fprintf(os.Stderr, "usage: ayy show foobar\n")
+			os.Exit(1)
+		}
+		path, found, err := integrate.FindImageByName(os.Args[2])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, ERROR+"searching images: %s\n", err)
+			os.Exit(1)
+		}
+		fp := fancy.Print{}
+		fp.Color(fancy.Cyan)
+		if !found {
+			fmt.Fprintf(os.Stderr, ERROR+"No image matching name '%s' found\n", fp.Format(os.Args[2]))
+			os.Exit(1)
+		}
+		printAppImageDetails(path)
+		os.Exit(0)
 	case "list":
 		listAppimages()
+		os.Exit(0)
 	case "help", "-h", "--help":
 		globalHelp()
 		os.Exit(0)
@@ -142,6 +171,7 @@ func globalHelp() {
 			"\n"+
 			"  install            Install an AppImage and integrate it into the desktop environment\n"+
 			"  list               Display installed AppImages\n"+
+			"  show               Show details of an AppImage\n"+
 			"  fs                 Interact with an AppImage's internal filesystem\n"+
 			"  elf                Display metadata stored on the AppImage's ELF header\n"+
 			"  help               Display this help\n"+
@@ -151,7 +181,7 @@ func globalHelp() {
 }
 
 func ai(path string) *appimage.AppImage {
-	app, err := appimage.NewAppImage(path)
+	app, err := appimage.Open(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, ERROR+"Couldn't open AppImage: %s\n", err)
 		os.Exit(1)
@@ -166,25 +196,32 @@ func unrootPath(s string) string {
 func listAppimages() {
 	appDir := filepath.Join(os.Getenv("HOME"), "Applications")
 	filepath.Walk(appDir, func(path string, info fs.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-		if !strings.HasSuffix(info.Name(), ".AppImage") {
-			return nil
-		}
-		ai := ai(path)
-
-		name := ai.DesktopEntry("Name")
-		version := ai.DesktopEntry("X-AppImage-Version")
-		appstreamid := ai.ID()
-
-		fpname := fancy.Print{}
-		fpname.Color(fancy.Cyan)
-
-		fpversion := fancy.Print{}
-		fpversion.Color(fancy.Yellow)
-		fmt.Printf("Name: %s\n\tVersion: %s\n\t   Path: %s\n\t     ID: %s\n\n", fpname.Format(name), fpversion.Format(version), path, appstreamid)
-
-		return nil
+		return printAppImageDetails(path)
 	})
+}
+
+func printAppImageDetails(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return nil
+	}
+	if !strings.HasSuffix(info.Name(), ".AppImage") {
+		return nil
+	}
+	ai := ai(path)
+
+	name := ai.DesktopEntry("Name")
+	version := ai.DesktopEntry("X-AppImage-Version")
+	appstreamid := ai.ID()
+
+	fpname := fancy.Print{}
+	fpname.Color(fancy.Cyan)
+
+	fpversion := fancy.Print{}
+	fpversion.Color(fancy.Yellow)
+	fmt.Printf("Name: %s    \n\tVersion: %s\n\t   Path: %s\n\t     ID: %s\n\n", fpname.Format(name), fpversion.Format(version), path, appstreamid)
+	return nil
 }

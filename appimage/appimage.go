@@ -23,7 +23,7 @@ type AppImage struct {
 	file            *os.File
 }
 
-func NewAppImage(file string) (*AppImage, error) {
+func Open(file string) (*AppImage, error) {
 
 	f, err := os.Open(file)
 	if err != nil {
@@ -68,6 +68,9 @@ func NewAppImage(file string) (*AppImage, error) {
 	ai.FS = sqfs
 
 	return &ai, nil
+}
+func (ai *AppImage) Close() {
+	ai.file.Close()
 }
 func (ai *AppImage) ELFSectionAsString(section string) (string, error) {
 	b, err := ai.elf.Section(section).Data()
@@ -146,6 +149,8 @@ func (ai *AppImage) AppStreamID() string {
 	return component.ID
 }
 
+type AppImageID string
+
 // ID tries to generate a stable identifier for the application that remains the same
 // across updates. AppImage does not specify anything like that.
 // However, the docs note that optionally an AppStream can be placed at a known location.
@@ -163,13 +168,12 @@ func (ai *AppImage) AppStreamID() string {
 //
 // If there's no desktop file, we're out of ideas and just use the file name of the AppImage
 // on disk.
-
-func (ai *AppImage) ID() string {
+func (ai *AppImage) ID() AppImageID {
 	asid := ai.AppStreamID()
 	if asid != "" {
-		return asid
+		return AppImageID(asid)
 	}
-	var sanitizer = regexp.MustCompile(`[^A-Za-z0-9\._\-]`)
+	var sanitizer = regexp.MustCompile(`[^A-Za-z]`)
 	updInfo, err := ai.ELFSectionAsString(".upd_info")
 	if err == nil {
 		spl := strings.Split(updInfo, "|")
@@ -188,17 +192,17 @@ func (ai *AppImage) ID() string {
 			filename := strings.ToLower(path.Base(u.Path))
 			filename = strings.TrimSuffix(filename, ".zsync")
 			filename = strings.TrimSuffix(filename, ".appimage")
-			return "ayy_" + strings.ToLower(sanitizer.ReplaceAllString(u.Hostname()+filename, ""))
+			return AppImageID("ayy_" + strings.ToLower(sanitizer.ReplaceAllString(u.Hostname()+filename, "")))
 		case "gh-releases-zsync":
 			if len(spl) < 3 {
 				goto desktop
 			}
-			return "ayy_gh-" + strings.ToLower(sanitizer.ReplaceAllString(spl[1]+spl[2], ""))
+			return AppImageID("ayy_gh-" + strings.ToLower(sanitizer.ReplaceAllString(spl[1]+spl[2], "")))
 		case "pling-v1-zsync":
 			if len(spl) < 2 {
 				goto desktop
 			}
-			return "ayy_pling1z-" + strings.ToLower(sanitizer.ReplaceAllString(spl[1], ""))
+			return AppImageID("ayy_pling1z-" + strings.ToLower(sanitizer.ReplaceAllString(spl[1], "")))
 		default:
 			goto desktop
 		}
@@ -206,12 +210,12 @@ func (ai *AppImage) ID() string {
 desktop:
 	did := ai.DesktopEntry("Name")
 	if did != "" {
-		return "ayy_dsk-" + strings.ToLower(sanitizer.ReplaceAllString(did, ""))
+		return AppImageID("ayy_dsk-" + strings.ToLower(sanitizer.ReplaceAllString(did, "")))
 	}
 
 	lastResort := ai.file.Name()
 	filename := strings.ToLower(lastResort)
 	filename = strings.TrimSuffix(filename, ".appimage")
 	filename = sanitizer.ReplaceAllString(filename, "")
-	return filename
+	return AppImageID(filename)
 }
