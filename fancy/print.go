@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+//docs: https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
+
 type Print struct {
 	formatStack []string
 	resetStack  []string
@@ -110,4 +112,35 @@ func (p *Print) Background(color int) *Print {
 	p.formatStack = append(p.formatStack, "\033["+str+"m")
 	p.resetStack = append(p.resetStack, "\033[39m")
 	return p
+}
+
+func CursorUp(n int) {
+	os.Stdout.WriteString("\033[" + itoa(n) + "A")
+}
+
+func CursorDown(n int) {
+	os.Stdout.WriteString("\033[" + itoa(n) + "B")
+}
+
+func CursorColumn(n int) {
+	os.Stdout.WriteString("\033[" + itoa(n) + "G")
+}
+
+func CursorSave() {
+	os.Stdout.WriteString("\033[s")
+}
+
+func CursorRestore() {
+	os.Stdout.WriteString("\033[u")
+}
+
+func EraseRemainingLine() {
+	os.Stdout.WriteString("\033[K")
+}
+
+func itoa(singleDigit int) string {
+	var r rune
+	r = '0'
+	r += rune(singleDigit)
+	return string(r)
 }
