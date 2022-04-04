@@ -48,7 +48,7 @@ func installAppimage(path string) {
 	desktopDir := filepath.Join(xdg.Get(xdg.DATA_HOME), "applications")
 	ensureExists(desktopDir)
 
-	aiHash, err := ai.CalculateSha256()
+	aiHash, err := ai.SHA256WithoutSignature()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, ERROR+"Couldn't hash AppImage: %s\n", err)
 		os.Exit(1)

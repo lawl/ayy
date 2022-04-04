@@ -38,6 +38,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "usage: ayy elf /foo/bar.AppImage\n")
 			os.Exit(1)
 		}
+
+		fp := fancy.Print{}
+		fp.Color(fancy.Cyan)
+
 		ai := ai(os.Args[2])
 		updInfo, err := ai.UpdateInfo()
 		if err != nil {
@@ -51,13 +55,28 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, ERROR+"reading update info: %s\n", err)
 		}
-		fmt.Printf("Image Format Type: %d\n", ai.ImageFormatType)
-		fmt.Printf("Update: %s\n", updInfo)
+		fmt.Printf("%s: %d\n", fp.Format("Image Format Type"), ai.ImageFormatType)
+		fmt.Printf("%s: %s\n", fp.Format("Update"), updInfo)
 
-		//I have found a total of ZERO appimages using this so far, very likely just won't implement
-		//there may also be better signature schemes one could implement
-		fmt.Printf("SHA256 sig: %s\n", string(sha256sig))
-		fmt.Printf("Sig key: %s\n", string(sigKey))
+		fmt.Printf("%s:\n%s\n", fp.Format("Raw Signature"), string(sha256sig))
+		fmt.Printf("%s:\n%s\n", fp.Format("Raw Signature Key"), string(sigKey))
+
+		if ai.HasSignature() {
+			sig, ok, err := ai.Signature()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, WARNING+"Couldn't read singature: %s\n", err)
+			}
+			if ok {
+				fmt.Printf("%s (trust on first use): [Primary Key ID: %s]\n", fp.Format("Signature"), sig.PrimaryKey.KeyIdString())
+				idprint := fancy.Print{}
+				idprint.Color(fancy.Yellow)
+				for _, i := range sig.Identities {
+					fmt.Printf("\t%s: %s\n", idprint.Format("Identity"), i.Name)
+				}
+			} else {
+				fmt.Printf("No or invalid digital signature.\n")
+			}
+		}
 	case "fs":
 
 		fsHelp := "usage: ayy fs /foo/bar.AppImage command\n" +
@@ -169,6 +188,7 @@ func listAppimages() {
 		fpversion := fancy.Print{}
 		fpversion.Color(fancy.Yellow)
 		fmt.Printf("Name: %s\n\tVersion: %s\n\t   Path: %s\n\n", fpname.Format(entry.KV["Name"]), fpversion.Format(entry.KV["X-AppImage-Version"]), path)
+
 		return nil
 	})
 }

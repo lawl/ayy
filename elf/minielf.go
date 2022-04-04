@@ -303,3 +303,11 @@ func (s *Section) Data() ([]byte, error) {
 	}
 	return buf, nil
 }
+
+func (s *Section) Offset() int {
+	return int(s.header.Shoffset)
+}
+
+func (s *Section) Length() int {
+	return int(s.header.Shsize)
+}

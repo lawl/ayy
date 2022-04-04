@@ -4,12 +4,12 @@ import (
 	"ayy/desktop"
 	"ayy/elf"
 	"ayy/squashfs"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
+	"strings"
 )
 
 type AppImage struct {
@@ -71,7 +71,8 @@ func (ai *AppImage) UpdateInfo() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(b), nil
+	ret := strings.Trim(string(b), "\x00")
+	return ret, nil
 }
 
 func (ai *AppImage) Sha256Sig() (string, error) {
@@ -79,7 +80,8 @@ func (ai *AppImage) Sha256Sig() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(b), nil
+	ret := strings.Trim(string(b), "\x00")
+	return ret, nil
 }
 
 func (ai *AppImage) SigKey() (string, error) {
@@ -87,18 +89,8 @@ func (ai *AppImage) SigKey() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(b), nil
-}
-
-func (ai *AppImage) CalculateSha256() ([]byte, error) {
-	h := sha256.New()
-	ai.file.Seek(0, io.SeekStart)
-	if _, err := io.Copy(h, ai.file); err != nil {
-		return nil, err
-	}
-
-	return h.Sum(nil), nil
-
+	ret := strings.Trim(string(b), "\x00")
+	return ret, nil
 }
 
 func (ai *AppImage) DesktopFile() (*desktop.File, error) {
