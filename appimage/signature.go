@@ -54,9 +54,13 @@ func (ai *AppImage) SHA256WithoutSignature() ([]byte, error) {
 	}
 	hashTarget := NewSkipReader(ai.file)
 	shasect := ai.elf.Section(".sha256_sig")
-	hashTarget.AddSkip(shasect.Offset(), shasect.Length())
+	if shasect != nil {
+		hashTarget.AddSkip(shasect.Offset(), shasect.Length())
+	}
 	sigsect := ai.elf.Section(".sig_key")
-	hashTarget.AddSkip(sigsect.Offset(), sigsect.Length())
+	if sigsect != nil {
+		hashTarget.AddSkip(sigsect.Offset(), sigsect.Length())
+	}
 
 	h := sha256.New()
 	if _, err := ai.file.Seek(0, io.SeekStart); err != nil {
