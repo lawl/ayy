@@ -19,7 +19,7 @@ func installAppimage(path string) {
 	}
 	ai := ai(path)
 
-	desktop, err := ai.InternalDesktopFile()
+	desktop, err := ai.DesktopFile()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, ERROR+"Couldn't fetch internal desktop file from AppImage: %w\n", err)
 		os.Exit(1)

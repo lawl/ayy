@@ -101,7 +101,7 @@ func (ai *AppImage) CalculateSha256() ([]byte, error) {
 
 }
 
-func (ai *AppImage) InternalDesktopFile() (*desktop.File, error) {
+func (ai *AppImage) DesktopFile() (*desktop.File, error) {
 	matches, err := fs.Glob(ai.FS, "*.desktop")
 	if err != nil {
 		return nil, fmt.Errorf("Cannot glob for desktop file: %w", err)

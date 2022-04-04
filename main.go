@@ -153,7 +153,7 @@ func listAppimages() {
 			return nil
 		}
 		ai := ai(path)
-		desktop, err := ai.InternalDesktopFile()
+		desktop, err := ai.DesktopFile()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, WARNING+"Couldn't read internal desktop file for '%s':%w\n", path, err)
 			return nil
