@@ -9,6 +9,7 @@ import (
 )
 
 //just enough ELF parsing to deal with appimages
+//used wiki as docs: https://en.wikipedia.org/wiki/Executable_and_Linkable_Format
 
 type File struct {
 	osFile *os.File
