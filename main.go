@@ -4,6 +4,7 @@ import (
 	"ayy/appimage"
 	"ayy/fancy"
 	"ayy/integrate"
+	"ayy/update"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -140,6 +141,18 @@ func main() {
 		if err := os.Remove(path); err != nil {
 			fmt.Fprintf(os.Stderr, ERROR+"Unable delete AppImage file '%s': %s\n", path, err)
 			os.Exit(1)
+		}
+		os.Exit(0)
+	case "update":
+		appDir := filepath.Join(os.Getenv("HOME"), "Applications")
+		err := filepath.Walk(appDir, func(path string, info fs.FileInfo, err error) error {
+			if !strings.HasSuffix(info.Name(), ".AppImage") {
+				return nil
+			}
+			return update.AppImage(path)
+		})
+		if err != nil {
+			panic(err)
 		}
 		os.Exit(0)
 	case "show":

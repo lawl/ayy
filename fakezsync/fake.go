@@ -2,10 +2,11 @@ package fakezsync
 
 import (
 	"bufio"
+	"encoding/hex"
 	"errors"
-	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -77,55 +78,100 @@ import (
 
 */
 
-func ResolveZsyncURL(urlstring string) (*url.URL, error) {
-	zsync, err := url.Parse(urlstring)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := http.Get(urlstring)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	fatFile, err := findFatFileLocation(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	faturl, err := url.Parse(fatFile)
-	if err != nil {
-		return nil, err
-	}
-	if faturl.IsAbs() {
-		return faturl, nil
-	}
-	return zsync.ResolveReference(faturl), nil
+type Zsync struct {
+	Version     string
+	Filename    string
+	Mtime       string
+	Blocksize   int
+	HashLengths []int
+	URL         string
+	SHA1        []byte
 }
 
-func findFatFileLocation(zsyncFile io.Reader) (string, error) {
-	buf := bufio.NewReader(zsyncFile)
+func Parse(urlstring string) (Zsync, error) {
+	zsync := Zsync{}
+
+	resp, err := http.Get(urlstring)
+	if err != nil {
+		return zsync, err
+	}
+	defer resp.Body.Close()
+
+	buf := bufio.NewReader(resp.Body)
 
 	header, err := buf.ReadString('\n')
 	if err != nil {
-		return "", err
+		return zsync, err
 	}
-	key, _, found := strings.Cut(header, ":")
+	key, value, found := strings.Cut(header, ":")
 	if !found || key != "zsync" {
-		return "", errors.New("not a zsync file")
+		return zsync, errors.New("not a zsync file")
 	}
+	zsync.Version = value
 
 	for {
 		header, err := buf.ReadString('\n')
 		if err != nil {
-			return "", err
+			return zsync, err
+		}
+		header = strings.TrimSpace(header)
+		// header seems to be delimited by \n\n
+		// so an empty line should mean we're done here
+		if header == "" {
+			return zsync, nil
 		}
 		key, value, found := strings.Cut(header, ":")
 		if !found {
 			// must already be in the binary garbage
 			// every line above should have a ":"
-			return "", errors.New("no URL header found in zsync file")
+			// or something else is weird
+			return zsync, errors.New("error parsing zsync file header, delimiter ':' not found")
 		}
-		if key == "URL" {
-			return strings.TrimSpace(value), nil
+		value = strings.TrimSpace(value)
+		switch strings.ToLower(strings.TrimSpace(key)) {
+		case "filename":
+			zsync.Filename = value
+		case "mtime":
+			zsync.Mtime = value
+		case "blocksize":
+			zsync.Blocksize, err = strconv.Atoi(value)
+			if err != nil {
+				return zsync, err
+			}
+		case "hashlengths":
+			spl := strings.Split(value, ",")
+			var lst []int
+			for _, v := range spl {
+				v = strings.TrimSpace(v)
+				in, err := strconv.Atoi(v)
+				if err != nil {
+					return zsync, err
+				}
+				lst = append(lst, in)
+			}
+			zsync.HashLengths = lst
+		case "url":
+			zsyncUrl, err := url.Parse(urlstring)
+			if err != nil {
+				return zsync, err
+			}
+			faturl, err := url.Parse(value)
+			if err != nil {
+				return zsync, err
+			}
+			if faturl.IsAbs() {
+				zsync.URL = faturl.String()
+			} else {
+				zsync.URL = zsyncUrl.ResolveReference(faturl).String()
+			}
+		case "sha":
+			b, err := hex.DecodeString(value)
+			if err != nil {
+				return zsync, err
+			}
+			zsync.SHA1 = b
+		default:
+			continue
 		}
 	}
 }
