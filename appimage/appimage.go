@@ -1,6 +1,7 @@
 package appimage
 
 import (
+	"ayy/appstream"
 	"ayy/desktop"
 	"ayy/elf"
 	"ayy/squashfs"
@@ -8,7 +9,10 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/url"
 	"os"
+	"path"
+	"regexp"
 	"strings"
 )
 
@@ -108,4 +112,106 @@ func (ai *AppImage) DesktopEntry(s string) (name string) {
 		return ""
 	}
 	return entry.KV[s]
+}
+
+func (ai *AppImage) AppStreamFile() (*appstream.Component, error) {
+	matches, err := fs.Glob(ai.FS, "usr/share/appdata/*.appdata.xml")
+	if err != nil {
+		return nil, fmt.Errorf("Cannot glob for appstream file: %w", err)
+	}
+
+	if len(matches) == 0 {
+		return nil, errors.New("AppImage does not contain an appstream file.")
+	}
+	internalFilePath := matches[0]
+
+	file, err := ai.FS.Open(internalFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't open file: %w\n", err)
+	}
+
+	component, err := appstream.Parse(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return component, nil
+}
+
+func (ai *AppImage) AppStreamID() string {
+	component, err := ai.AppStreamFile()
+	if err != nil {
+		return ""
+	}
+	return component.ID
+}
+
+// ID tries to generate a stable identifier for the application that remains the same
+// across updates. AppImage does not specify anything like that.
+// However, the docs note that optionally an AppStream can be placed at a known location.
+// an AppStream does specify such an ID. If available, use that.
+// If not, we try to make a synthetic ID. If the application has update information
+// (.upd_info ELF section) we build a synthetic ID from that, as the AppImage spec say
+//
+//     URL to the .zsync file (URL MUST NOT change from version to version)
+//
+// for Zsync URLs. For github updates <username>-<repo> should hopefully reasonably stable
+// and for Pling, we have a product ID that we can use.
+//
+// If a file has no update information, we take the (slightly processed) "Name" entry from
+// the .desktop file.
+//
+// If there's no desktop file, we're out of ideas and just use the file name of the AppImage
+// on disk.
+
+func (ai *AppImage) ID() string {
+	asid := ai.AppStreamID()
+	if asid != "" {
+		return asid
+	}
+	var sanitizer = regexp.MustCompile(`[^A-Za-z0-9\._\-]`)
+	updInfo, err := ai.ELFSectionAsString(".upd_info")
+	if err == nil {
+		spl := strings.Split(updInfo, "|")
+		if len(spl) == 0 {
+			goto desktop
+		}
+		switch spl[0] {
+		case "zsync":
+			if len(spl) < 2 {
+				goto desktop
+			}
+			u, err := url.Parse(spl[1])
+			if err != nil {
+				goto desktop
+			}
+			filename := strings.ToLower(path.Base(u.Path))
+			filename = strings.TrimSuffix(filename, ".zsync")
+			filename = strings.TrimSuffix(filename, ".appimage")
+			return "ayy_" + strings.ToLower(sanitizer.ReplaceAllString(u.Hostname()+filename, ""))
+		case "gh-releases-zsync":
+			if len(spl) < 3 {
+				goto desktop
+			}
+			return "ayy_gh-" + strings.ToLower(sanitizer.ReplaceAllString(spl[1]+spl[2], ""))
+		case "pling-v1-zsync":
+			if len(spl) < 2 {
+				goto desktop
+			}
+			return "ayy_pling1z-" + strings.ToLower(sanitizer.ReplaceAllString(spl[1], ""))
+		default:
+			goto desktop
+		}
+	}
+desktop:
+	did := ai.DesktopEntry("Name")
+	if did != "" {
+		return "ayy_dsk-" + strings.ToLower(sanitizer.ReplaceAllString(did, ""))
+	}
+
+	lastResort := ai.file.Name()
+	filename := strings.ToLower(lastResort)
+	filename = strings.TrimSuffix(filename, ".appimage")
+	filename = sanitizer.ReplaceAllString(filename, "")
+	return filename
 }

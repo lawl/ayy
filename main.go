@@ -175,13 +175,14 @@ func listAppimages() {
 
 		name := ai.DesktopEntry("Name")
 		version := ai.DesktopEntry("X-AppImage-Version")
+		appstreamid := ai.ID()
 
 		fpname := fancy.Print{}
 		fpname.Color(fancy.Cyan)
 
 		fpversion := fancy.Print{}
 		fpversion.Color(fancy.Yellow)
-		fmt.Printf("Name: %s\n\tVersion: %s\n\t   Path: %s\n\n", fpname.Format(name), fpversion.Format(version), path)
+		fmt.Printf("Name: %s\n\tVersion: %s\n\t   Path: %s\n\t     ID: %s\n\n", fpname.Format(name), fpversion.Format(version), path, appstreamid)
 
 		return nil
 	})
