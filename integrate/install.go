@@ -1,9 +1,10 @@
-package main
+package integrate
 
 import (
 	"ayy/appimage"
 	"ayy/squashfs"
 	"ayy/xdg"
+	"errors"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -12,46 +13,48 @@ import (
 	"strings"
 )
 
-func installAppimage(path string) {
-	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
-		fmt.Fprintln(os.Stderr, "web fetch support coming soon(tm)")
-		os.Exit(1)
+func AppImage(path string) (warnings []string, err error) {
+
+	ai, err := appimage.NewAppImage(path)
+	if err != nil {
+		return warnings, err
 	}
-	ai := ai(path)
 
 	desktop, err := ai.DesktopFile()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, ERROR+"Couldn't fetch internal desktop file from AppImage: %w\n", err)
-		os.Exit(1)
+		return warnings, errors.New("Couldn't read .desktop file. Currently unsupported. .desktop-less installs currently unsupported.")
 	}
 
 	desktopgroup, found := desktop.Group("Desktop Entry")
 	if !found {
-		fmt.Fprintf(os.Stderr, ERROR+"Couldn't find 'Desktop Entry' group in .desktop file\n")
-		os.Exit(1)
+		return warnings, errors.New("Couldn't find 'Desktop Entry' group in .desktop file. .desktop-less installs currently unsupported.")
 	}
 
 	icon, err := fs.ReadFile(ai.FS, ".DirIcon")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, ERROR+"Couldn't read .DirIcon in AppImage: %s\n", err)
-		os.Exit(1)
+		return warnings, err
 	}
 
 	appDir := filepath.Join(os.Getenv("HOME"), "Applications")
-	ensureExists(appDir)
+	if err := ensureExists(appDir); err != nil {
+		return warnings, err
+	}
 
 	// why data home and not cache? if the user clears the cache, icons break
 	// and we don't really have a mechanism to easily detect that apart from (i/fa/...)notify
-	iconDir := filepath.Join(xdg.Get(xdg.DATA_HOME), AppName, "icons")
-	ensureExists(iconDir)
+	iconDir := filepath.Join(xdg.Get(xdg.DATA_HOME), "ayy", "icons")
+	if err := ensureExists(iconDir); err != nil {
+		return warnings, err
+	}
 
 	desktopDir := filepath.Join(xdg.Get(xdg.DATA_HOME), "applications")
-	ensureExists(desktopDir)
+	if err := ensureExists(desktopDir); err != nil {
+		return warnings, err
+	}
 
 	aiHash, err := ai.SHA256WithoutSignature()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, ERROR+"Couldn't hash AppImage: %s\n", err)
-		os.Exit(1)
+		return warnings, err
 	}
 
 	iconPath := filepath.Join(iconDir, fmt.Sprintf("appimage_%x%s", aiHash, findDirIconFileExt(ai)))
@@ -60,17 +63,15 @@ func installAppimage(path string) {
 
 	err = os.Rename(path, appimgPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, ERROR+"Couldn't move AppImage from '%s' => '%s': %s\n", path, appimgPath, err)
-		os.Exit(1)
+		return warnings, err
 	}
 
 	if err := os.Chmod(appimgPath, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, WARNING+"Couldn't set executable permissions on AppImage '%s': %s\n", appimgPath, err)
+		warnings = append(warnings, fmt.Sprintf("Couldn't set executable permissions on AppImage '%s': %s\n", appimgPath, err))
 	}
 
 	err = ioutil.WriteFile(iconPath, icon, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, ERROR+"Couldn't write icon to '%s': %s\n", iconPath, err)
 		goto err
 	}
 
@@ -83,7 +84,6 @@ func installAppimage(path string) {
 
 	err = ioutil.WriteFile(desktopPath, []byte(desktop.String()), 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, ERROR+"Couldn't write icon to '%s': %s\n", desktopPath, err)
 		goto err
 	}
 
@@ -94,7 +94,7 @@ err:
 	//no point in trying to handle errors in here, best effort.
 	os.Remove(iconPath)
 	os.Remove(desktopPath)
-	os.Exit(1)
+	return warnings, err
 }
 
 func findDirIconFileExt(ai *appimage.AppImage) (ret string) {
@@ -130,19 +130,16 @@ func findDirIconFileExt(ai *appimage.AppImage) (ret string) {
 
 		stat, err := e.Info()
 		if err != nil {
-			fmt.Printf("sup2")
 			return
 		}
 
 		sqinfo, ok := stat.Sys().(squashfs.SquashInfo)
 		if !ok {
-			fmt.Printf("sup3")
 			return
 		}
 		isSymlink := stat.Mode()&fs.ModeSymlink == fs.ModeSymlink
 
 		if !isSymlink {
-			fmt.Printf("sup4")
 			return
 		}
 		ret = filepath.Ext(sqinfo.SymlinkTarget())
@@ -151,14 +148,14 @@ func findDirIconFileExt(ai *appimage.AppImage) (ret string) {
 	return
 }
 
-func ensureExists(path string) {
+func ensureExists(path string) error {
 	if !exists(path) {
 		err := os.MkdirAll(path, 0755)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, ERROR+"Directory '%s' does not exist, and we could not create it: %s\n", path, err)
-			os.Exit(1)
+			return fmt.Errorf("Directory '%s' does not exist, and we could not create it: %s\n", path, err)
 		}
 	}
+	return nil
 }
 
 func exists(path string) bool {

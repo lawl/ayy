@@ -3,6 +3,7 @@ package main
 import (
 	"ayy/appimage"
 	"ayy/fancy"
+	"ayy/integrate"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -123,7 +124,7 @@ func main() {
 				"this is currently required to be a local path, but may also allow https urls in the future. Stay tuned.\n")
 			os.Exit(1)
 		}
-		installAppimage(os.Args[2])
+		integrate.AppImage(os.Args[2])
 	case "list":
 		listAppimages()
 	case "help", "-h", "--help":
