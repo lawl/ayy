@@ -207,11 +207,43 @@ func MoveToApplications(appImagePath string) (string, error) {
 
 	newPath := filepath.Join(appDir, filepath.Base(appImagePath))
 
-	if exists(newPath) {
-		return "", errors.New("Upgrading AppImages not supported yet!")
+	ai, err := appimage.Open(appImagePath)
+	if err != nil {
+		return "", err
+	}
+	defer ai.Close()
+
+	//check if this is upgrading an existing image
+	path, found, err := FindImageById(ai.ID())
+	if found && err == nil {
+		newPath = path
+		oldai, err := appimage.Open(path)
+		if err != nil {
+			return "", fmt.Errorf("Found existing AppImage '%s', with same ID '%s', but couldn't open it, refusing installation for security reasons: %s", path, ai.ID(), err)
+		}
+		if oldai.HasSignature() {
+			oldkey, err := oldai.ELFSectionAsString(".sig_key")
+			if err != nil {
+				return "", fmt.Errorf("Found existing AppImage '%s', with same ID '%s', read old signature, refusing installation for security reasons: %s", path, ai.ID(), err)
+			}
+			newkey, err := ai.ELFSectionAsString(".sig_key")
+			if err != nil {
+				return "", fmt.Errorf("Couldn't read signature of '%s', ID '%s', refusing installation for security reasons: %s", path, ai.ID(), err)
+			}
+			if oldkey != newkey {
+				return "", fmt.Errorf("Found existing AppImage '%s', with same ID '%s', but different signature, WILL NOT PROCEED WITH INSTALLATION: %s", path, ai.ID(), err)
+			}
+
+			_, ok, err := ai.Signature()
+			if err != nil || !ok {
+				return "", fmt.Errorf("AppImage '%s', with ID '%s', has a signature that does not verify, WILL NOT PROCEED WITH INSTALLATION: %s", path, ai.ID(), err)
+			}
+		}
+	} else if found && err != nil {
+		return "", fmt.Errorf("Found existing AppImage '%s', with same ID '%s', but an error occured, refusing installation for security reasons: %s", path, ai.ID(), err)
 	}
 
-	err := os.Rename(appImagePath, newPath)
+	err = os.Rename(appImagePath, newPath)
 	if err != nil {
 		return "", err
 	}
