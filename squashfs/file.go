@@ -73,13 +73,11 @@ func readBlock(f *File) ([]byte, error) {
 	f.currentByteOffset += int64(sz)
 
 	block := make([]byte, sz)
-	n, err := sqfs.reader.Read(block)
+	_, err := io.ReadFull(sqfs.reader, block)
 	if err != nil {
 		return block, err
 	}
-	if n != int(sz) {
-		return nil, errors.New(fmt.Sprintf("read failure: n != sz -> %d != %d", n, sz))
-	}
+
 	// TODO, check if even compressed? or maybe make uncompress a NOP if not
 	b, err := uncompress(block)
 	if err != nil {
@@ -130,7 +128,7 @@ func readFragment(f *File) ([]byte, error) {
 	if _, err := sqfs.reader.Seek(int64(fblock.Start), io.SeekStart); err != nil {
 		return nil, err
 	}
-	if _, err := sqfs.reader.Read(compressedBlock); err != nil {
+	if _, err := io.ReadFull(sqfs.reader, compressedBlock); err != nil {
 		return nil, err
 	}
 	var uncompressedBlock []byte
@@ -165,7 +163,7 @@ func (s *SquashFS) ReadFile(bf BasicFile) ([]byte, error) {
 	}
 	for _, sz := range bf.BlockSizes {
 		block := make([]byte, sz)
-		n, err := r.Read(block)
+		n, err := io.ReadFull(r, block)
 		if err != nil {
 			return buf, err
 		}
@@ -223,7 +221,7 @@ func (s *SquashFS) ReadFile(bf BasicFile) ([]byte, error) {
 		if _, err := s.reader.Seek(int64(fblock.Start), io.SeekStart); err != nil {
 			return nil, err
 		}
-		if _, err := s.reader.Read(compressedBlock); err != nil {
+		if _, err := io.ReadFull(s.reader, compressedBlock); err != nil {
 			return nil, err
 		}
 		uncompressedBlock, err := uncompress(compressedBlock)

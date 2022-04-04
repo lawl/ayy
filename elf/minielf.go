@@ -34,7 +34,7 @@ func Open(file *os.File) (*File, error) {
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
-	_, err := file.Read(buf)
+	_, err := io.ReadFull(file, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func readNullTerminatedString(f io.Reader) (string, error) {
 	var str []byte
 	for {
 		b := make([]byte, 1)
-		if _, err := f.Read(b); err != nil {
+		if _, err := io.ReadFull(f, b); err != nil {
 			return "", err
 		}
 		if b[0] == 0x00 {
@@ -298,7 +298,7 @@ func (s *Section) Data() ([]byte, error) {
 	if _, err := s.osFile.Seek(int64(s.header.Shoffset), io.SeekStart); err != nil {
 		return nil, err
 	}
-	if _, err := s.osFile.Read(buf); err != nil {
+	if _, err := io.ReadFull(s.osFile, buf); err != nil {
 		return nil, err
 	}
 	return buf, nil
