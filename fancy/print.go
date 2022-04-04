@@ -1,15 +1,29 @@
 package fancy
 
 import (
+	"os"
 	"strings"
 )
 
 type Print struct {
 	formatStack []string
 	resetStack  []string
+
+	checkedShouldColorize bool
+	shouldColorize        bool
 }
 
 func (p *Print) Format(str string) string {
+	if !p.checkedShouldColorize {
+		fi, _ := os.Stdout.Stat()
+
+		if (fi.Mode() & os.ModeCharDevice) != 0 {
+			p.shouldColorize = true
+		}
+	}
+	if !p.shouldColorize {
+		return str
+	}
 	var sb strings.Builder
 	for _, f := range p.formatStack {
 		sb.WriteString(f)
