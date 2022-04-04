@@ -166,8 +166,8 @@ type AppImageID string
 // If a file has no update information, we take the (slightly processed) "Name" entry from
 // the .desktop file.
 //
-// If there's no desktop file, we're out of ideas and just use the file name of the AppImage
-// on disk.
+// If there's no desktop file, we're out of ideas and just use the (slightly processed) file
+// name of the AppImage on disk. Using some simple heuristics trying to cut out version numbers.
 func (ai *AppImage) ID() AppImageID {
 	asid := ai.AppStreamID()
 	if asid != "" {
@@ -209,6 +209,9 @@ func (ai *AppImage) ID() AppImageID {
 	}
 desktop:
 	did := ai.DesktopEntry("Name")
+	did = strings.Split(did, "-")[0]
+	did = strings.Split(did, "_")[0]
+
 	if did != "" {
 		return AppImageID("ayy_dsk-" + strings.ToLower(sanitizer.ReplaceAllString(did, "")))
 	}
