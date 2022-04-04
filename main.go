@@ -61,23 +61,6 @@ func main() {
 
 		fmt.Printf("%s:\n%s\n", fp.Format("Raw Signature"), string(sha256sig))
 		fmt.Printf("%s:\n%s\n", fp.Format("Raw Signature Key"), string(sigKey))
-
-		if ai.HasSignature() {
-			sig, ok, err := ai.Signature()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, WARNING+"Couldn't read singature: %s\n", err)
-			}
-			if ok {
-				fmt.Printf("%s (trust on first use): [Primary Key ID: %s]\n", fp.Format("Signature"), sig.PrimaryKey.KeyIdString())
-				idprint := fancy.Print{}
-				idprint.Color(fancy.Yellow)
-				for _, i := range sig.Identities {
-					fmt.Printf("\t%s: %s\n", idprint.Format("Identity"), i.Name)
-				}
-			} else {
-				fmt.Printf("No or invalid digital signature.\n")
-			}
-		}
 	case "fs":
 
 		fsHelp := "usage: ayy fs /foo/bar.AppImage command\n" +
@@ -192,6 +175,7 @@ func globalHelp() {
 		"usage ayy <command>\n"+
 			"\n"+
 			"  install            Install an AppImage and integrate it into the desktop environment\n"+
+			"  uninstall          Locate installed AppImage by name, uninstall and unintegrate it\n"+
 			"  list               Display installed AppImages\n"+
 			"  show               Show details of an AppImage\n"+
 			"  fs                 Interact with an AppImage's internal filesystem\n"+
@@ -245,24 +229,50 @@ func printAppImageDetails(path string) error {
 	yellow := fancy.Print{}
 	yellow.Color(fancy.Yellow)
 
-	no := fancy.Print{}
-	no.Color(fancy.Red).Dim().Bold()
+	nocolor := fancy.Print{}
+	nocolor.Color(fancy.Red).Dim().Bold()
 
-	yes := fancy.Print{}
-	yes.Color(fancy.Green).Dim().Bold()
+	yescolor := fancy.Print{}
+	yescolor.Color(fancy.Green).Dim().Bold()
 
-	installedStr := no.Format("no")
+	no := nocolor.Format("no")
+	yes := yescolor.Format("yes")
+
+	installedStr := no
 	if integrate.IsIntegrated(ai) {
-		installedStr = yes.Format("yes")
+		installedStr = yes
 	}
+
+	hasOkSig := false
 
 	fmt.Printf("Name: %s\n"+
 		"\t  Version: %s\n"+
 		"\tInstalled: %s\n"+
 		"\t     Path: %s\n"+
-		"\t       ID: %s"+
-		"\n\n",
+		"\t       ID: %s\n"+
+		"",
 		cyan.Format(name), yellow.Format(version), installedStr, path, appstreamid)
+
+	fmt.Print("\tSignature: ")
+	if ai.HasSignature() {
+		sig, ok, err := ai.Signature()
+		if err == nil {
+			if ok {
+				hasOkSig = true
+				fmt.Printf("%s ", yes)
+				fmt.Printf("[Primary Key ID: %s] (trust on first use)\n", sig.PrimaryKey.KeyIdString())
+				idprint := fancy.Print{}
+				idprint.Color(fancy.Yellow)
+				for _, i := range sig.Identities {
+					fmt.Printf("\t           %s: %s\n", idprint.Format("Identity"), i.Name)
+				}
+			}
+		}
+	}
+	if !hasOkSig {
+		fmt.Printf("%s\n", no)
+	}
+
 	return nil
 }
 
