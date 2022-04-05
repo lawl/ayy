@@ -29,6 +29,7 @@ func init() {
 }
 
 func main() {
+	//TODO properly use flags package everywhere here, and migrate help to flag.Usage?
 	if len(os.Args) < 2 {
 		globalHelp()
 		os.Exit(1)

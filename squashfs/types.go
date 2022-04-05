@@ -126,15 +126,55 @@ func (f BasicFile) endsInFragment() bool {
 }
 
 type BasicDirectory struct {
-	BlockIdx          uint32
+	BlockStart        uint32
 	HardLinkCount     uint32
 	FileSize          uint16
 	BlockOffset       uint16
 	ParentInodeNumber uint32
 }
 
+type ExtendedDirectory struct {
+	HardLinkCount     uint32
+	FileSize          uint32
+	BlockStart        uint32
+	ParentInodeNumber uint32
+	IndexCount        uint16
+	BlockOffset       uint16
+	XattrIdx          uint32
+	Index             []DirectoryIndex
+}
+
+type DirectoryIndex struct {
+	Index    uint32
+	Start    uint32
+	NameSize uint32
+	Name     string
+}
+
 type FragmentBlockEntry struct {
 	Start  uint64
 	Size   uint32
 	Unused uint32
+}
+
+type ExtendedFile struct {
+	BlocksStart        uint64
+	FileSize           uint64
+	Sparse             uint64
+	HardLinkCount      uint32
+	FragmentBlockIndex uint32
+	BlockOffset        uint32
+	XattrIdx           uint32
+	BlockSizes         []uint32
+}
+
+func (f ExtendedFile) endsInFragment() bool {
+	return f.FragmentBlockIndex != 0xFFFFFFFF
+}
+
+type ExtendedSymlink struct {
+	HardLinkCount uint32
+	TargetSize    uint32
+	TargetPath    string
+	XattrIdx      uint32
 }

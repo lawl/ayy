@@ -10,8 +10,33 @@ import (
 	"time"
 )
 
+//prefixed with i, because the fields are named the same
+//and we only have this interface to dedupe some code
+//between extended and basic file, i don't want to have
+//to always to through getters/setters
+type SqfsFile interface {
+	iBlocksStart() uint64
+	iFileSize() uint64
+	iFragmentBlockIndex() uint32
+	iBlockOffset() uint32
+	iBlockSizes() []uint32
+	endsInFragment() bool
+}
+
+func (bf BasicFile) iBlocksStart() uint64        { return uint64(bf.BlocksStart) }
+func (bf BasicFile) iFileSize() uint64           { return uint64(bf.FileSize) }
+func (bf BasicFile) iFragmentBlockIndex() uint32 { return bf.FragmentBlockIndex }
+func (bf BasicFile) iBlockOffset() uint32        { return bf.BlockOffset }
+func (bf BasicFile) iBlockSizes() []uint32       { return bf.BlockSizes }
+
+func (bf ExtendedFile) iBlocksStart() uint64        { return bf.BlocksStart }
+func (bf ExtendedFile) iFileSize() uint64           { return bf.FileSize }
+func (bf ExtendedFile) iFragmentBlockIndex() uint32 { return bf.FragmentBlockIndex }
+func (bf ExtendedFile) iBlockOffset() uint32        { return bf.BlockOffset }
+func (bf ExtendedFile) iBlockSizes() []uint32       { return bf.BlockSizes }
+
 type File struct {
-	bf         BasicFile
+	bf         SqfsFile
 	de         DirectoryEntry
 	sqfs       *SquashFS
 	databuffer []byte
@@ -30,6 +55,15 @@ func fileFromBasicFile(s *SquashFS, bf BasicFile, de DirectoryEntry) *File {
 
 	return &file
 }
+func fileFromExtendedFile(s *SquashFS, bf ExtendedFile, de DirectoryEntry) *File {
+
+	file := File{}
+	file.bf = bf
+	file.de = de
+	file.sqfs = s
+
+	return &file
+}
 func (f *File) Read(buf []byte) (int, error) {
 	// go expects that we can just read n bytes from a stream here
 	// but we deal with compressed blocks internally
@@ -41,7 +75,7 @@ func (f *File) Read(buf []byte) (int, error) {
 
 	if len(f.databuffer) == 0 {
 		var err error
-		if f.currentBlockId < len(f.bf.BlockSizes) {
+		if f.currentBlockId < len(f.bf.iBlockSizes()) {
 			f.databuffer, err = readBlock(f)
 			if err != nil {
 				return 0, err
@@ -64,10 +98,10 @@ func (f *File) Read(buf []byte) (int, error) {
 
 func readBlock(f *File) ([]byte, error) {
 	sqfs := f.sqfs
-	if _, err := sqfs.reader.Seek(int64(f.bf.BlocksStart)+f.currentByteOffset, io.SeekStart); err != nil {
+	if _, err := sqfs.reader.Seek(int64(f.bf.iBlocksStart())+f.currentByteOffset, io.SeekStart); err != nil {
 		return nil, err
 	}
-	sz := f.bf.BlockSizes[f.currentBlockId]
+	sz := f.bf.iBlockSizes()[f.currentBlockId]
 	f.currentBlockId++
 	f.currentByteOffset += int64(sz)
 
@@ -98,7 +132,7 @@ func readFragment(f *File) ([]byte, error) {
 		noffsets++
 	}
 
-	offs := (f.bf.FragmentBlockIndex / 512) * 8 // u64 = 8byte
+	offs := (f.bf.iFragmentBlockIndex() / 512) * 8 // u64 = 8byte
 	if _, err := sqfs.reader.Seek(int64(sqfs.superblock.FragmentTableStart)+int64(offs), io.SeekStart); err != nil {
 		return nil, err
 	}
@@ -113,7 +147,7 @@ func readFragment(f *File) ([]byte, error) {
 		return nil, err
 	}
 	// FragmentBlockEntry = 16 byte.
-	boffset := (f.bf.FragmentBlockIndex % 512) * 16
+	boffset := (f.bf.iFragmentBlockIndex() % 512) * 16
 	blockbuf := bytes.NewBuffer(block[boffset:])
 	fblock := FragmentBlockEntry{}
 	if err := binary.Read(blockbuf, binary.LittleEndian, &fblock); err != nil {
@@ -140,8 +174,8 @@ func readFragment(f *File) ([]byte, error) {
 		}
 	}
 	f.haveReadFragment = true
-	maxReadUntil := f.bf.FileSize - uint32(f.nBytesRead)
-	return uncompressedBlock[f.bf.BlockOffset : f.bf.BlockOffset+maxReadUntil], nil
+	maxReadUntil := f.bf.iFileSize() - uint64(f.nBytesRead)
+	return uncompressedBlock[f.bf.iBlockOffset() : uint64(f.bf.iBlockOffset())+maxReadUntil], nil
 }
 
 func (f File) Close() error {
@@ -320,9 +354,15 @@ func (f *FileInfo) stat() error {
 	switch node := inode.(type) {
 	case BasicFile:
 		f.size = int64(node.FileSize)
+	case ExtendedFile:
+		f.size = int64(node.FileSize)
 	case []DirectoryEntry:
 		f.size = 0
 	case BasicSymlink:
+		f.size = 0
+		f.symlinkTarget = node.TargetPath
+		f.symlinkTargetSize = int64(node.TargetSize)
+	case ExtendedSymlink:
 		f.size = 0
 		f.symlinkTarget = node.TargetPath
 		f.symlinkTargetSize = int64(node.TargetSize)

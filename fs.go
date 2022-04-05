@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 )
 
 func listFiles(aiPath, internalPath string, usebytes bool) {
@@ -33,7 +34,11 @@ func listFiles(aiPath, internalPath string, usebytes bool) {
 		isSymlink := info.Mode()&fs.ModeSymlink == fs.ModeSymlink
 		if isSymlink {
 			linkTarget = " -> "
-			target, err := ai.FS.Open(sqinfo.SymlinkTarget())
+			targetname := sqinfo.SymlinkTarget()
+			if !filepath.IsAbs(targetname) {
+				targetname = filepath.Join(unrootPath(internalPath), targetname)
+			}
+			target, err := ai.FS.Open(targetname)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Couldn't read symlink pointing to %s: %s", sqinfo.SymlinkTarget(), err)
 			}

@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -85,8 +86,23 @@ func (s *SquashFS) Open(name string) (fs.File, error) {
 			case BasicFile:
 				f := fileFromBasicFile(s, node, entry)
 				return f, nil
+				//the extended info of files isn't actually read yet
+				//but we read the basic info from extended files/dirs
+			case ExtendedFile:
+				f := fileFromExtendedFile(s, node, entry)
+				return f, nil
 			case BasicSymlink:
-				return s.Open(node.TargetPath)
+				target := node.TargetPath
+				if !filepath.IsAbs(node.TargetPath) {
+					target = filepath.Join(dirname, node.TargetPath)
+				}
+				return s.Open(target)
+			case ExtendedSymlink:
+				target := node.TargetPath
+				if !filepath.IsAbs(node.TargetPath) {
+					target = filepath.Join(dirname, node.TargetPath)
+				}
+				return s.Open(target)
 			default:
 				return nil, unimplemented(fmt.Sprintf("expected file to open() to be BasicFile or BasicSymlink, is %T", iNode))
 			}
@@ -196,7 +212,7 @@ func (s *SquashFS) readInode(inodeRef uint64, offset uint64, start uint64) (Inod
 			return inodeHeader, nil, err
 		}
 
-		de, err := s.readDirectoryTable(dir)
+		de, err := readDirectoryTable(s, dir, dir.BlockStart, dir.BlockOffset, uint32(dir.FileSize))
 		return inodeHeader, de, err
 	case tBasicFile:
 		bfile := BasicFile{}
@@ -240,25 +256,120 @@ func (s *SquashFS) readInode(inodeRef uint64, offset uint64, start uint64) (Inod
 		}
 		symlink := BasicSymlink{HardLinkCount: hardLinkCount, TargetSize: targetSize, TargetPath: string(str)}
 		return inodeHeader, symlink, nil
+	case tExtendedDirectory:
+		tmp := struct {
+			HardLinkCount     uint32
+			FileSize          uint32
+			BlockStart        uint32
+			ParentInodeNumber uint32
+			IndexCount        uint16
+			BlockOffset       uint16
+			XattrIdx          uint32
+		}{}
+		dir := ExtendedDirectory{}
+		if err := binary.Read(blockbuf, binary.LittleEndian, &tmp); err != nil {
+			return inodeHeader, nil, err
+		}
+		dir.HardLinkCount = tmp.HardLinkCount
+		dir.FileSize = tmp.FileSize
+		dir.BlockStart = tmp.BlockStart
+		dir.ParentInodeNumber = tmp.ParentInodeNumber
+		dir.IndexCount = tmp.IndexCount
+		dir.BlockOffset = tmp.BlockOffset
+		dir.XattrIdx = tmp.XattrIdx
 
+		dir.Index = make([]DirectoryIndex, dir.IndexCount)
+		for i := range dir.Index {
+			if err := binary.Read(blockbuf, binary.LittleEndian, &dir.Index[i]); err != nil {
+				return inodeHeader, nil, err
+			}
+		}
+		de, err := readDirectoryTable(s, dir, dir.BlockStart, dir.BlockOffset, dir.FileSize)
+		return inodeHeader, de, err
+
+		// so annoying
+		// i don't know how to dedupe with code with BasicFile
+		// because the fields are in different order
+		// but we can't just pass the full struct, because fields
+		// early in the struct are required to calculate the sizes later in the struct
+		// anything i can think of to dedupe this would probably end up being *more*
+		// complicated than living with the super repetitive code all over this file
+	case tExtendedFile:
+		extfile := ExtendedFile{}
+		if err := binary.Read(blockbuf, binary.LittleEndian, &extfile.BlocksStart); err != nil {
+			return inodeHeader, nil, err
+		}
+		if err := binary.Read(blockbuf, binary.LittleEndian, &extfile.FileSize); err != nil {
+			return inodeHeader, nil, err
+		}
+		if err := binary.Read(blockbuf, binary.LittleEndian, &extfile.Sparse); err != nil {
+			return inodeHeader, nil, err
+		}
+		if err := binary.Read(blockbuf, binary.LittleEndian, &extfile.HardLinkCount); err != nil {
+			return inodeHeader, nil, err
+		}
+		if err := binary.Read(blockbuf, binary.LittleEndian, &extfile.FragmentBlockIndex); err != nil {
+			return inodeHeader, nil, err
+		}
+		if err := binary.Read(blockbuf, binary.LittleEndian, &extfile.BlockOffset); err != nil {
+			return inodeHeader, nil, err
+		}
+		if err := binary.Read(blockbuf, binary.LittleEndian, &extfile.XattrIdx); err != nil {
+			return inodeHeader, nil, err
+		}
+
+		blkSzCount := extfile.FileSize / uint64(superblock.BlockSize)
+
+		if !extfile.endsInFragment() { // does this file NOT end in a fragment?
+			if extfile.FileSize%uint64(superblock.BlockSize) != 0 {
+				blkSzCount++ // round up
+			}
+		}
+		extfile.BlockSizes = make([]uint32, blkSzCount)
+		if err := binary.Read(blockbuf, binary.LittleEndian, &extfile.BlockSizes); err != nil {
+			return inodeHeader, nil, err
+		}
+		return inodeHeader, extfile, nil
+	case tExtendedSymlink:
+		var hardLinkCount uint32
+		var targetSize uint32
+		if err := binary.Read(blockbuf, binary.LittleEndian, &hardLinkCount); err != nil {
+			return inodeHeader, nil, err
+		}
+		if err := binary.Read(blockbuf, binary.LittleEndian, &targetSize); err != nil {
+			return inodeHeader, nil, err
+		}
+		str := make([]byte, targetSize)
+		if err := binary.Read(blockbuf, binary.LittleEndian, &str); err != nil {
+			return inodeHeader, nil, err
+		}
+		var xattridx uint32
+		if err := binary.Read(blockbuf, binary.LittleEndian, &xattridx); err != nil {
+			return inodeHeader, nil, err
+		}
+		symlink := ExtendedSymlink{HardLinkCount: hardLinkCount, TargetSize: targetSize, TargetPath: string(str), XattrIdx: xattridx}
+		return inodeHeader, symlink, nil
 	default:
 		return inodeHeader, nil, unimplemented(fmt.Sprintf("Unhandled inode type: %d\n", inodeHeader.InodeType))
 	}
 }
 
-func (s *SquashFS) readDirectoryTable(dir BasicDirectory) ([]DirectoryEntry, error) {
+// Questionable use of generics?
+// Seems kind of difficult to do this without having
+// to copy paste the method otherwise
+// unfortunately we have to pass blockstart, blockoffs, and filesize
+// again now even though they'd be on dir, because it's now T
+// could probably remove that with an interface?
+func readDirectoryTable[T BasicDirectory | ExtendedDirectory](
+	s *SquashFS, dir T, blockstart uint32, blockoffs uint16, fileSize uint32) ([]DirectoryEntry, error) {
 
 	superblock := s.superblock
 
-	blockidx := dir.BlockIdx
-	blockoffs := dir.BlockOffset
-	size := int(dir.FileSize)
-
 	directories := make([]DirectoryEntry, 0)
 
-	block, err := s.readMetadataBlock(superblock.DirectoryTableStart + uint64(blockidx))
+	block, err := s.readMetadataBlock(superblock.DirectoryTableStart + uint64(blockstart))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	// The extra 3 bytes are for a virtual "." and ".." item in each directory which is
@@ -303,7 +414,7 @@ func (s *SquashFS) readDirectoryTable(dir BasicDirectory) ([]DirectoryEntry, err
 		len2 := blockbuf.Len()
 
 		bytesRead = len1 - len2 + bytesRead
-		if !(bytesRead < size) {
+		if !(bytesRead < int(fileSize)) {
 			break
 		}
 	}
@@ -311,6 +422,7 @@ func (s *SquashFS) readDirectoryTable(dir BasicDirectory) ([]DirectoryEntry, err
 	return directories, nil
 
 }
+
 func (s *SquashFS) readMetadataBlock(off uint64) ([]byte, error) {
 	data1, compressedLen, err := s.readMetadataBlockSingle(off)
 	if err != nil {
