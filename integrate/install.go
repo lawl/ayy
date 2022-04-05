@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -85,6 +86,10 @@ func Integrate(appimgPath string) (err error) {
 	if err != nil {
 		goto err
 	}
+
+	// don't care if it errors, best effort
+	exec.Command("update-desktop-database", desktopPath).Run()
+	exec.Command("xdg-desktop-menu", "forceupdate", "--mode", "user").Run()
 
 	return nil
 
