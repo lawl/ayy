@@ -108,7 +108,7 @@ func main() {
 				"this is currently required to be a local path, but may also allow https urls in the future. Stay tuned.\n")
 			os.Exit(1)
 		}
-		id, err := integrate.MoveToApplications(os.Args[2])
+		id, err := integrate.MoveToApplications(os.Args[2], "")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, ERROR+"Cannot move AppImage to Application directory: %s\n", err)
 			os.Exit(1)
@@ -357,7 +357,7 @@ func parallelUpgrade(filesToProcess []string) {
 
 	//spawn workers
 	for i := 0; i < concurrencyCount; i++ {
-		progressBars[i] = *fancy.NewProgressBar(25, 100)
+		progressBars[i] = *fancy.NewProgressBar(20, 100)
 		fmt.Println("") // reserve a line to print status
 		go upgradeWorker(percentDone, i, jobs)
 		spawned++
@@ -396,7 +396,6 @@ func parallelUpgrade(filesToProcess []string) {
 		fancy.CursorUp(status.id + 1)
 		fancy.CursorColumn(0)
 		fancy.EraseRemainingLine()
-		fancy.CursorColumn(0)
 		progressBars[status.id].Print(status.percent)
 		fmt.Print(" " + fp.Format(status.appname) + " " + status.text)
 	}

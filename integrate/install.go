@@ -199,13 +199,16 @@ func rewriteExecLine(exec, newbin string) string {
 	return strings.Join(toks, " ")
 }
 
-func MoveToApplications(appImagePath string) (string, error) {
+//newPath may be an empty string, in that case MoveToApplications will decide this itself
+func MoveToApplications(appImagePath string, newPath string) (string, error) {
 	appDir := filepath.Join(os.Getenv("HOME"), "Applications")
 	if err := ensureExists(appDir); err != nil {
 		return "", err
 	}
 
-	newPath := filepath.Join(appDir, filepath.Base(appImagePath))
+	if newPath == "" {
+		newPath = filepath.Join(appDir, filepath.Base(appImagePath))
+	}
 
 	ai, err := appimage.Open(appImagePath)
 	if err != nil {
