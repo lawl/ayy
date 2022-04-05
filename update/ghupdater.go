@@ -143,7 +143,7 @@ func (ghu ghUpdater) hasUpdateAvailable() (url string, available bool, err error
 			}
 
 			if bytes.Compare(zsync.SHA1, sha) != 0 {
-				return zsync.URL, false, nil
+				return zsync.URL, true, nil
 			}
 
 			return "", false, nil
