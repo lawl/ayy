@@ -56,6 +56,7 @@ func AppImage(aiPath string, ch chan Progress) {
 		for dl := range dlch {
 			if dl.err != nil {
 				ch <- Progress{Err: err, AppName: appName}
+				os.Remove(targetPath)
 				return
 			}
 			txt := "Downloading"
