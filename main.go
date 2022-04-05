@@ -36,9 +36,9 @@ func main() {
 	}
 
 	switch os.Args[1] {
-	case "elf":
+	case "inspect":
 		if len(os.Args) < 3 {
-			fmt.Fprintf(os.Stderr, "usage: ayy elf /foo/bar.AppImage\n")
+			fmt.Fprintf(os.Stderr, "usage: ayy inspect /foo/bar.AppImage\n")
 			os.Exit(1)
 		}
 
@@ -63,6 +63,7 @@ func main() {
 
 			fmt.Printf("%s:\n%s\n", fp.Format("Raw Signature"), string(sha256sig))
 			fmt.Printf("%s:\n%s\n", fp.Format("Raw Signature Key"), string(sigKey))
+			printAppImageDetails(arg)
 		}
 
 	case "fs":
