@@ -43,25 +43,27 @@ func main() {
 
 		fp := fancy.Print{}
 		fp.Color(fancy.Cyan)
+		for _, arg := range os.Args[2:] {
+			ai := ai(arg)
+			updInfo, err := ai.ELFSectionAsString(".upd_info")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, ERROR+"reading update info: %s\n", err)
+			}
+			sha256sig, err := ai.ELFSectionAsString(".sha256_sig")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, ERROR+"reading update info: %s\n", err)
+			}
+			sigKey, err := ai.ELFSectionAsString(".sig_key")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, ERROR+"reading update info: %s\n", err)
+			}
+			fmt.Printf("%s: %d\n", fp.Format("Image Format Type"), ai.ImageFormatType)
+			fmt.Printf("%s: %s\n", fp.Format("Update"), updInfo)
 
-		ai := ai(os.Args[2])
-		updInfo, err := ai.ELFSectionAsString(".upd_info")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, ERROR+"reading update info: %s\n", err)
+			fmt.Printf("%s:\n%s\n", fp.Format("Raw Signature"), string(sha256sig))
+			fmt.Printf("%s:\n%s\n", fp.Format("Raw Signature Key"), string(sigKey))
 		}
-		sha256sig, err := ai.ELFSectionAsString(".sha256_sig")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, ERROR+"reading update info: %s\n", err)
-		}
-		sigKey, err := ai.ELFSectionAsString(".sig_key")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, ERROR+"reading update info: %s\n", err)
-		}
-		fmt.Printf("%s: %d\n", fp.Format("Image Format Type"), ai.ImageFormatType)
-		fmt.Printf("%s: %s\n", fp.Format("Update"), updInfo)
 
-		fmt.Printf("%s:\n%s\n", fp.Format("Raw Signature"), string(sha256sig))
-		fmt.Printf("%s:\n%s\n", fp.Format("Raw Signature Key"), string(sigKey))
 	case "fs":
 
 		fsHelp := "usage: ayy fs /foo/bar.AppImage command\n" +
@@ -83,7 +85,10 @@ func main() {
 				fmt.Fprintf(os.Stderr, ERROR+"Unable to parse flags: %s\n", err)
 				os.Exit(1)
 			}
-			listFiles(os.Args[2], ls.Arg(0), *usebytes)
+			for _, arg := range ls.Args() {
+				fmt.Printf("%s:\n", arg)
+				listFiles(os.Args[2], ls.Arg(0), *usebytes)
+			}
 			os.Exit(0)
 		case "cat":
 			cat := flag.NewFlagSet("cat", flag.ExitOnError)
@@ -91,7 +96,9 @@ func main() {
 				fmt.Fprintf(os.Stderr, ERROR+"Unable to parse flags: %s\n", err)
 				os.Exit(1)
 			}
-			catFile(os.Args[2], cat.Arg(0))
+			for _, arg := range cat.Args() {
+				catFile(os.Args[2], arg)
+			}
 			os.Exit(0)
 		default:
 			fmt.Fprintf(os.Stderr, fsHelp)
@@ -108,15 +115,17 @@ func main() {
 				"this is currently required to be a local path, but may also allow https urls in the future. Stay tuned.\n")
 			os.Exit(1)
 		}
-		id, err := integrate.MoveToApplications(os.Args[2], "")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, ERROR+"Cannot move AppImage to Application directory: %s\n", err)
-			os.Exit(1)
-		}
-		err = integrate.Integrate(id)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, ERROR+"Cannot integrate app image: %s\n", err)
-			os.Exit(1)
+		for _, arg := range os.Args[2:] {
+			id, err := integrate.MoveToApplications(arg, "")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, ERROR+"Cannot move AppImage to Application directory: %s\n", err)
+				os.Exit(1)
+			}
+			err = integrate.Integrate(id)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, ERROR+"Cannot integrate app image: %s\n", err)
+				os.Exit(1)
+			}
 		}
 		os.Exit(0)
 	case "uninstall":
@@ -132,18 +141,21 @@ func main() {
 			fmt.Fprintf(os.Stderr, ERROR+"Unable to parse flags: %s\n", err)
 			os.Exit(1)
 		}
-		path := findAppImagefromCLIArgs(uninstall.Arg(0), *id)
+		for _, arg := range uninstall.Args() {
+			path := findAppImagefromCLIArgs(arg, *id)
 
-		if err := integrate.Unintegrate(path); err != nil {
-			fmt.Fprintf(os.Stderr, ERROR+"Unable to unintegrate AppImage: %s\n", err)
-			os.Exit(1)
-		}
-		if err := os.Remove(path); err != nil {
-			fmt.Fprintf(os.Stderr, ERROR+"Unable delete AppImage file '%s': %s\n", path, err)
-			os.Exit(1)
+			if err := integrate.Unintegrate(path); err != nil {
+				fmt.Fprintf(os.Stderr, ERROR+"Unable to unintegrate AppImage: %s\n", err)
+				os.Exit(1)
+			}
+			if err := os.Remove(path); err != nil {
+				fmt.Fprintf(os.Stderr, ERROR+"Unable delete AppImage file '%s': %s\n", path, err)
+				os.Exit(1)
+			}
 		}
 		os.Exit(0)
 	case "update":
+		// TODO: support arguments, so that e.g. "ayy update foo bar" only updates foo and bar
 		appDir := filepath.Join(os.Getenv("HOME"), "Applications")
 		var appList []string
 		err := filepath.Walk(appDir, func(path string, info fs.FileInfo, err error) error {
@@ -171,8 +183,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, ERROR+"Unable to parse flags: %s\n", err)
 			os.Exit(1)
 		}
-		path := findAppImagefromCLIArgs(show.Arg(0), *id)
-		printAppImageDetails(path)
+		for _, arg := range show.Args() {
+			path := findAppImagefromCLIArgs(arg, *id)
+			printAppImageDetails(path)
+		}
+
 		os.Exit(0)
 	case "list":
 		listAppimages()
