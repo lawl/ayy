@@ -54,22 +54,11 @@ func (s *Reader) Read(p []byte) (n int, err error) {
 
 			junk := make([]byte, len(p))
 
-			totalRead := 0
 			//drain the original reader by that many bytes
-			for {
-				n, err := s.r.Read(junk)
-				totalRead += n
-				s.currentOffset += n
-				s.nullBytesToReturn -= n
-				if err != nil {
-					return totalRead, err
-				}
-				if n == len(p) {
-					break
-				}
-			}
-
-			return totalRead, nil
+			n, err := io.ReadFull(s.r, junk)
+			s.currentOffset += n
+			s.nullBytesToReturn -= n
+			return n, err
 		}
 
 	}
