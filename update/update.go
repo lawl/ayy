@@ -42,7 +42,7 @@ func AppImage(aiPath string, ch chan Progress) {
 
 	ch <- Progress{Percent: 0, Text: "Checking for updates", Err: nil}
 
-	at, updavail, err := updater.hasUpdateAvailable()
+	at, updavail, err := updater.check()
 	if err != nil {
 		ch <- Progress{Err: err, AppName: appName}
 		return
@@ -100,14 +100,12 @@ func AppImage(aiPath string, ch chan Progress) {
 }
 
 type Updater interface {
-	hasUpdateAvailable() (string, bool, error)
-	update() error
+	check() (url string, available bool, err error)
 }
 
 type nullUpdater struct{}
 
-func (n nullUpdater) hasUpdateAvailable() (string, bool, error) { return "", false, nil }
-func (n nullUpdater) update() error                             { return nil }
+func (n nullUpdater) check() (url string, available bool, err error) { return "", false, nil }
 
 func updaterFromUpdInfo(updInfo string, localPath string) Updater {
 	updInfo = strings.TrimSpace(updInfo)

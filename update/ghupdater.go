@@ -103,7 +103,7 @@ type ghUpdater struct {
 	localPath   string
 }
 
-func (ghu ghUpdater) hasUpdateAvailable() (url string, available bool, err error) {
+func (ghu ghUpdater) check() (url string, available bool, err error) {
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/%s", ghu.ghUsername, ghu.ghRepo, ghu.releaseName)
 	resp, err := http.Get(apiURL)
 	if err != nil {
