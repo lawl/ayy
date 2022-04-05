@@ -3,31 +3,56 @@ package update
 import (
 	"ayy/appimage"
 	"crypto/sha1"
-	"fmt"
 	"io"
 	"os"
 	"strings"
 )
 
-func AppImage(path string) error {
+type Progress struct {
+	Percent int
+	AppName string
+	Text    string
+	Err     error
+}
+
+func AppImage(path string, ch chan Progress) {
+	defer close(ch)
+
 	ai, err := appimage.Open(path)
 	if err != nil {
-		return err
+		ch <- Progress{Err: err, AppName: "<unknown>"}
+		return
 	}
 	defer ai.Close()
+
+	appName := ai.DesktopEntry("Name")
+
 	updInfo, err := ai.ELFSectionAsString(".upd_info")
 	if err != nil {
-		return err
+		ch <- Progress{Err: err, AppName: appName}
+		return
 	}
 	updater := updaterFromUpdInfo(updInfo, path)
 
-	at, updavail, err := updater.hasUpdateAvailable()
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%s has an update available %t, at: %s\n", path, updavail, at)
+	ch <- Progress{Percent: 0, Text: "Checking for updates", Err: nil}
 
-	return nil
+	_, updavail, err := updater.hasUpdateAvailable()
+	if err != nil {
+		ch <- Progress{Err: err, AppName: appName}
+		return
+	}
+
+	if updavail {
+		ch <- Progress{Percent: 0, AppName: appName, Text: "Update Available", Err: nil}
+	} else {
+		if _, ok := updater.(nullUpdater); ok {
+			ch <- Progress{Percent: 100, AppName: appName, Text: "No update information embedded", Err: nil}
+		} else {
+			ch <- Progress{Percent: 100, AppName: appName, Text: "Already up to date", Err: nil}
+		}
+	}
+
+	return
 }
 
 type Updater interface {

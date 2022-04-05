@@ -4,6 +4,7 @@ import (
 	"ayy/appimage"
 	"ayy/fancy"
 	"ayy/integrate"
+	"ayy/update"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -330,6 +331,7 @@ type progressReport struct {
 	text       string
 	err        error
 	jobindex   int
+	appname    string
 }
 
 type upgradeJob struct {
@@ -396,7 +398,7 @@ func parallelUpgrade(filesToProcess []string) {
 		fancy.EraseRemainingLine()
 		fancy.CursorColumn(0)
 		progressBars[status.id].Print(status.percent)
-		fmt.Print(" " + fp.Format(status.text))
+		fmt.Print(" " + fp.Format(status.appname) + " " + status.text)
 	}
 
 	fancy.CursorRestore()
@@ -409,17 +411,18 @@ func parallelUpgrade(filesToProcess []string) {
 }
 
 func upgradeWorker(status chan progressReport, workerid int, jobs chan upgradeJob) {
+newjob:
 	for job := range jobs {
-		ai, err := appimage.Open(job.appImagePath)
-		if err != nil {
-			status <- progressReport{id: workerid, jobindex: job.jobindex, err: err}
-			continue
-		}
-		defer ai.Close()
 
-		name := ai.DesktopEntry("Name")
-		status <- progressReport{id: workerid, percent: /*int((float32(i) / float32(max)) * 100)*/ 0, text: name}
-		//update.AppImage(job.appImagePath)
+		progress := make(chan update.Progress)
+		go update.AppImage(job.appImagePath, progress)
+		for p := range progress {
+			if p.Err != nil {
+				status <- progressReport{id: workerid, percent: 100, appname: p.AppName, text: "Error", err: p.Err}
+				break newjob
+			}
+			status <- progressReport{id: workerid, percent: p.Percent, appname: p.AppName, text: p.Text}
+		}
 
 	}
 
