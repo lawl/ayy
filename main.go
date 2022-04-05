@@ -159,9 +159,6 @@ func main() {
 		appDir := filepath.Join(os.Getenv("HOME"), "Applications")
 		var appList []string
 		err := filepath.Walk(appDir, func(path string, info fs.FileInfo, err error) error {
-			if !strings.HasSuffix(info.Name(), ".AppImage") {
-				return nil
-			}
 			appList = append(appList, path)
 			return nil
 		})
@@ -246,9 +243,7 @@ func printAppImageDetails(path string) error {
 	if info.IsDir() {
 		return nil
 	}
-	if !strings.HasSuffix(info.Name(), ".AppImage") {
-		return nil
-	}
+
 	ai := ai(path)
 
 	name := ai.DesktopEntry("Name")

@@ -24,9 +24,7 @@ func FindImageById(id appimage.AppImageID) (path string, found bool, err error) 
 		if info.IsDir() {
 			continue
 		}
-		if !strings.HasSuffix(info.Name(), ".AppImage") {
-			continue
-		}
+
 		ai, err := appimage.Open(curpath)
 		if err != nil {
 			continue
@@ -60,9 +58,7 @@ func FindImageByName(name string) (path string, found bool, err error) {
 		if info.IsDir() {
 			continue
 		}
-		if !strings.HasSuffix(info.Name(), ".AppImage") {
-			continue
-		}
+
 		ai, err := appimage.Open(curpath)
 		if err != nil {
 			continue
