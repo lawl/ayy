@@ -184,9 +184,9 @@ func (pr writeProgressReporter) Write(p []byte) (n int, err error) {
 		pretendMax := 1 * 1024 * 1024 * 100
 		pretendWritten := *pr.written % int64(pretendMax)
 
-		percent = int(float32(pretendWritten)/float32(pretendMax)) * 100
+		percent = int(float32(pretendWritten) / float32(pretendMax) * 100)
 	} else {
-		percent = int(float32(*pr.written)/float32(pr.max)) * 100
+		percent = int(float32(*pr.written) / float32(pr.max) * 100)
 	}
 
 	pr.ch <- downloadProgress{progress: percent, err: nil, size: int(pr.max), bytesDownloaded: int(*pr.written)}
