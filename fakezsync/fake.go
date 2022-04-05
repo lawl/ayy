@@ -44,6 +44,11 @@ import (
 	blocks zsync uses. Nor does it take care of the issue
 	of enforcing DEFLATE.
 
+	In a quick test where I patched the SquasFS implementation
+	to print the offset of compressed blocks of existing
+	AppImages I had laying around, none was aligned with the
+	blocksize specified in zsync.
+
 	Also unadressed is the issue of servers not supporting
 	Range HTTP requests. (Possibly some CDNs?)
 	And how that is detected and handled without corrupting
