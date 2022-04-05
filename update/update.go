@@ -64,6 +64,9 @@ func AppImage(aiPath string, ch chan Progress) {
 			}
 			dlstr := bytesz.Format(uint64(dl.bytesDownloaded))
 			szstr := bytesz.Format(uint64(dl.size))
+			if dl.size <= 0 {
+				szstr = "?"
+			}
 			txt += fmt.Sprintf(" (%s/%s)", dlstr, szstr)
 			ch <- Progress{Percent: dl.progress, AppName: appName, Text: txt, Err: nil}
 		}
