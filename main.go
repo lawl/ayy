@@ -129,20 +129,20 @@ func main() {
 			}
 		}
 		os.Exit(0)
-	case "uninstall":
+	case "remove":
 		if len(os.Args) < 3 {
-			fmt.Fprintf(os.Stderr, "usage: ayy uninstall <name>\n"+
+			fmt.Fprintf(os.Stderr, "usage: ayy remove <name>\n"+
 				"\n"+
 				"Hint: Find names with 'ayy list'\n")
 			os.Exit(1)
 		}
-		uninstall := flag.NewFlagSet("uninstall", flag.ExitOnError)
-		id := uninstall.String("id", "", "use id instead of name")
-		if err := uninstall.Parse(os.Args[2:]); err != nil {
+		remove := flag.NewFlagSet("remove", flag.ExitOnError)
+		id := remove.String("id", "", "use id instead of name")
+		if err := remove.Parse(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, ERROR+"Unable to parse flags: %s\n", err)
 			os.Exit(1)
 		}
-		for _, arg := range uninstall.Args() {
+		for _, arg := range remove.Args() {
 			path := findAppImagefromCLIArgs(arg, *id)
 
 			if err := integrate.Unintegrate(path); err != nil {
@@ -204,7 +204,7 @@ func globalHelp() {
 		"usage ayy <command>\n"+
 			"\n"+
 			"  install            Install an AppImage and integrate it into the desktop environment\n"+
-			"  uninstall          Locate installed AppImage by name, uninstall and unintegrate it\n"+
+			"  remove             Locate installed AppImage by name, uninstall and unintegrate it\n"+
 			"  update             Update all images in Applications folder\n"+
 			"  list               Display installed AppImages\n"+
 			"  show               Show details of an AppImage\n"+
