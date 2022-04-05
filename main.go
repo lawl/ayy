@@ -4,7 +4,6 @@ import (
 	"ayy/appimage"
 	"ayy/fancy"
 	"ayy/integrate"
-	"ayy/update"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -145,12 +144,15 @@ func main() {
 		os.Exit(0)
 	case "update":
 		appDir := filepath.Join(os.Getenv("HOME"), "Applications")
+		var appList []string
 		err := filepath.Walk(appDir, func(path string, info fs.FileInfo, err error) error {
 			if !strings.HasSuffix(info.Name(), ".AppImage") {
 				return nil
 			}
-			return update.AppImage(path)
+			appList = append(appList, path)
+			return nil
 		})
+		parallelUpgrade(appList)
 		if err != nil {
 			panic(err)
 		}
@@ -319,4 +321,107 @@ func findAppImagefromCLIArgs(name, id string) string {
 	}
 
 	return path
+}
+
+type progressReport struct {
+	id         int
+	percent    int
+	terminated bool
+	text       string
+	err        error
+	jobindex   int
+}
+
+type upgradeJob struct {
+	appImagePath string
+	jobindex     int
+}
+
+func parallelUpgrade(filesToProcess []string) {
+	const maxConcurrency = 10
+
+	percentDone := make(chan progressReport)
+	jobs := make(chan upgradeJob)
+	defer close(percentDone)
+
+	var progressBars [maxConcurrency]fancy.ProgressBar
+
+	spawned := 0
+
+	concurrencyCount := len(filesToProcess)
+	if len(filesToProcess) > maxConcurrency {
+		concurrencyCount = maxConcurrency
+	}
+
+	//spawn workers
+	for i := 0; i < concurrencyCount; i++ {
+		progressBars[i] = *fancy.NewProgressBar(25, 100)
+		fmt.Println("") // reserve a line to print status
+		go upgradeWorker(percentDone, i, jobs)
+		spawned++
+	}
+	fancy.CursorSave()
+
+	//go routine to feed workers
+	go func() {
+		for i := range filesToProcess {
+			jobject := upgradeJob{appImagePath: filesToProcess[i], jobindex: i}
+			jobs <- jobject
+		}
+		close(jobs)
+	}()
+
+	fp := fancy.Print{}
+	fp.Color(fancy.Cyan)
+
+	errors := make([]error, len(filesToProcess))
+
+	// status printer
+	for {
+		if spawned == 0 {
+			break
+		}
+		status := <-percentDone
+		if status.terminated {
+			spawned--
+			continue
+		}
+		if status.err != nil {
+			errors[status.jobindex] = status.err
+			continue
+		}
+		fancy.CursorRestore()
+		fancy.CursorUp(status.id + 1)
+		fancy.CursorColumn(0)
+		fancy.EraseRemainingLine()
+		fancy.CursorColumn(0)
+		progressBars[status.id].Print(status.percent)
+		fmt.Print(" " + fp.Format(status.text))
+	}
+
+	fancy.CursorRestore()
+
+	for i, err := range errors {
+		if err != nil {
+			fmt.Printf(ERROR+"Processing '%s': %s", filesToProcess[i], err)
+		}
+	}
+}
+
+func upgradeWorker(status chan progressReport, workerid int, jobs chan upgradeJob) {
+	for job := range jobs {
+		ai, err := appimage.Open(job.appImagePath)
+		if err != nil {
+			status <- progressReport{id: workerid, jobindex: job.jobindex, err: err}
+			continue
+		}
+		defer ai.Close()
+
+		name := ai.DesktopEntry("Name")
+		status <- progressReport{id: workerid, percent: /*int((float32(i) / float32(max)) * 100)*/ 0, text: name}
+		//update.AppImage(job.appImagePath)
+
+	}
+
+	status <- progressReport{terminated: true}
 }

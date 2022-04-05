@@ -2,6 +2,7 @@ package fancy
 
 import (
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -115,15 +116,15 @@ func (p *Print) Background(color int) *Print {
 }
 
 func CursorUp(n int) {
-	os.Stdout.WriteString("\033[" + itoa(n) + "A")
+	os.Stdout.WriteString("\033[" + strconv.Itoa(n) + "A")
 }
 
 func CursorDown(n int) {
-	os.Stdout.WriteString("\033[" + itoa(n) + "B")
+	os.Stdout.WriteString("\033[" + strconv.Itoa(n) + "B")
 }
 
 func CursorColumn(n int) {
-	os.Stdout.WriteString("\033[" + itoa(n) + "G")
+	os.Stdout.WriteString("\033[" + strconv.Itoa(n) + "G")
 }
 
 func CursorSave() {
