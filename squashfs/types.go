@@ -48,18 +48,20 @@ func unimplemented(msg string) error {
 	return unimplementedError{msg: "Unimplemented: " + msg}
 }
 
-const UncompressedInodes = 0x0001
-const UncompressedData = 0x0002
-const Check = 0x0004
-const UncompressedFragments = 0x0008
-const NoFragments = 0x0010
-const AlwaysFragments = 0x0020
-const Duplicates = 0x0040
-const Exportable = 0x0080
-const UncompressedXAttrs = 0x0100
-const NoXAttrs = 0x0200
-const CompressorOptions = 0x0400
-const UncompressedIds = 0x0800
+const (
+	UncompressedInodes    = 0x0001
+	UncompressedData      = 0x0002
+	Check                 = 0x0004
+	UncompressedFragments = 0x0008
+	NoFragments           = 0x0010
+	AlwaysFragments       = 0x0020
+	Duplicates            = 0x0040
+	Exportable            = 0x0080
+	UncompressedXAttrs    = 0x0100
+	NoXAttrs              = 0x0200
+	CompressorOptions     = 0x0400
+	UncompressedIds       = 0x0800
+)
 
 const (
 	tNone = iota
