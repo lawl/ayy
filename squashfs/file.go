@@ -3,7 +3,6 @@ package squashfs
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -163,14 +162,11 @@ func (s *SquashFS) ReadFile(bf BasicFile) ([]byte, error) {
 	}
 	for _, sz := range bf.BlockSizes {
 		block := make([]byte, sz)
-		n, err := io.ReadFull(r, block)
+		_, err := io.ReadFull(r, block)
 		if err != nil {
 			return buf, err
 		}
-		if n != int(sz) {
-			return nil, errors.New(fmt.Sprintf("read failure: n != sz -> %d != %d", n, sz))
-		}
-		// TODO, check if even compressed? or maybe make uncompress a NOP if not
+
 		var b []byte
 		if s.superblock.Flags&UncompressedData == UncompressedData {
 			b = block
