@@ -141,6 +141,7 @@ func (ghu ghUpdater) hasUpdateAvailable() (url string, available bool, err error
 				if err != nil {
 					return err
 				}
+				ai.Close()
 				return nil
 			})
 			if err != nil {
