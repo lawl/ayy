@@ -1,6 +1,7 @@
 package appimage
 
 import (
+	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -63,6 +64,35 @@ func (ai *AppImage) SHA256WithoutSignature() ([]byte, error) {
 	}
 
 	h := sha256.New()
+	if _, err := ai.file.Seek(0, io.SeekStart); err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	if _, err := io.Copy(h, hashTarget); err != nil {
+		return nil, err
+	}
+
+	return h.Sum(nil), nil
+
+}
+
+func (ai *AppImage) SHA1WithoutSignature() ([]byte, error) {
+	if _, err := ai.file.Seek(0, io.SeekStart); err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	hashTarget := NewSkipReader(ai.file)
+	shasect := ai.elf.Section(".sha256_sig")
+	if shasect != nil {
+		hashTarget.AddSkip(shasect.Offset(), shasect.Length())
+	}
+	sigsect := ai.elf.Section(".sig_key")
+	if sigsect != nil {
+		hashTarget.AddSkip(sigsect.Offset(), sigsect.Length())
+	}
+
+	h := sha1.New()
 	if _, err := ai.file.Seek(0, io.SeekStart); err != nil {
 		fmt.Println(err)
 		return nil, err

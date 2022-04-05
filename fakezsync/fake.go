@@ -164,7 +164,7 @@ func Parse(urlstring string) (Zsync, error) {
 			} else {
 				zsync.URL = zsyncUrl.ResolveReference(faturl).String()
 			}
-		case "sha":
+		case "sha-1":
 			b, err := hex.DecodeString(value)
 			if err != nil {
 				return zsync, err

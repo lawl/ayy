@@ -1,6 +1,7 @@
 package update
 
 import (
+	"ayy/appimage"
 	"ayy/fakezsync"
 	"ayy/parallel"
 	"bytes"
@@ -132,7 +133,11 @@ func (ghu ghUpdater) hasUpdateAvailable() (url string, available bool, err error
 				return nil
 			}, func() error {
 				var err error
-				sha, err = sha1file(ghu.localPath)
+				ai, err := appimage.Open(ghu.localPath)
+				if err != nil {
+					return err
+				}
+				sha, err = ai.SHA1WithoutSignature()
 				if err != nil {
 					return err
 				}
