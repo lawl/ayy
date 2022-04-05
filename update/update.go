@@ -71,6 +71,10 @@ func AppImage(aiPath string, ch chan Progress) {
 			txt += fmt.Sprintf(" (%s/%s)", dlstr, szstr)
 			ch <- Progress{Percent: dl.progress, AppName: appName, Text: txt, Err: nil}
 		}
+		if ok, err := imagesHaveSameId(targetPath, aiPath); !ok || err != nil {
+			ch <- Progress{Err: fmt.Errorf("Installed image and downloaded update don't have matching IDs. Aborting for security reasons. Leaving downloaded file for inspection."), AppName: appName}
+			return
+		}
 		ch <- Progress{Percent: 100, AppName: appName, Text: "Installing...", Err: nil}
 		integrate.MoveToApplications(targetPath, aiPath)
 		ch <- Progress{Percent: 100, AppName: appName, Text: "Done", Err: nil}
@@ -195,4 +199,17 @@ func (pr writeProgressReporter) Write(p []byte) (n int, err error) {
 
 	pr.ch <- downloadProgress{progress: percent, err: nil, size: int(pr.max), bytesDownloaded: int(*pr.written)}
 	return len(p), nil
+}
+
+func imagesHaveSameId(targetPath, aiPath string) (bool, error) {
+	ai1, err := appimage.Open(targetPath)
+	if err != nil {
+		return false, err
+	}
+	ai2, err := appimage.Open(aiPath)
+	if err != nil {
+		return false, err
+	}
+
+	return ai1.ID() == ai2.ID(), nil
 }
