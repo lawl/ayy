@@ -163,6 +163,10 @@ func downloadFileWithProgress(url string, progressCh chan downloadProgress, targ
 		return
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		progressCh <- downloadProgress{err: fmt.Errorf("http status: %d %s", resp.StatusCode, resp.Status)}
+		return
+	}
 	var bytesWrittenCounter int64
 	writer := writeProgressReporter{ch: progressCh, max: resp.ContentLength, written: &bytesWrittenCounter}
 	progressReader := io.TeeReader(resp.Body, writer)

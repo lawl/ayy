@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -96,6 +97,10 @@ func Parse(urlstring string) (Zsync, error) {
 		return zsync, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return zsync, fmt.Errorf("http status: %d %s", resp.StatusCode, resp.Status)
+	}
 
 	buf := bufio.NewReader(resp.Body)
 
