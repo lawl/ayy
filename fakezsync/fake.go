@@ -54,6 +54,22 @@ import (
 	And how that is detected and handled without corrupting
 	the file.
 
+	We also cannot patch the file in-place on the file system
+	since the zsync file itself it not signed. If we patched
+	it in place and then check the signature and figure out
+	it doesn't match, we now have a (porentially) malicious
+	executable on the system, and really the only thing we can
+	do at that point is... immediately delete it. And the user
+	having lost their program.
+
+	Then this would also require hacks such as stripping the +x
+	during patching, to make sure it cannot be executed before
+	the signature has been checked.
+
+	So the only option is to make a copy on the filesystem and
+	patch that, with removes further benefits of zsync, as that
+	takes time too.
+
 	Last but not least, the question is, if it even matters.
 	When using apt, i feel like I'm usually waiting for
 
