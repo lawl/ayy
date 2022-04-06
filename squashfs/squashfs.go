@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -203,11 +204,13 @@ func (s *SquashFS) ReadDir(name string) ([]fs.DirEntry, error) {
 func (s *SquashFS) readInode(inodeRef uint64, offset uint64, start uint64) (InodeHeader, any, error) {
 	inodeHeader := InodeHeader{}
 	superblock := s.superblock
+
 	block, err := s.readMetadataBlock(superblock.InodeTableStart + start)
 	if err != nil {
 		return inodeHeader, nil, err
 	}
 	blockbuf := bytes.NewBuffer(block[offset:])
+
 	if err := binary.Read(blockbuf, binary.LittleEndian, &inodeHeader); err != nil {
 		return inodeHeader, nil, err
 	}
@@ -308,9 +311,7 @@ func (s *SquashFS) readInode(inodeRef uint64, offset uint64, start uint64) (Inod
 
 		}
 		de, err := readDirectoryTable(s, dir, dir.BlockStart, dir.BlockOffset, dir.FileSize)
-		if err == io.EOF {
-			err = nil
-		}
+
 		return inodeHeader, de, err
 
 		// so annoying
@@ -454,21 +455,50 @@ func readDirectoryTable[T BasicDirectory | ExtendedDirectory](
 
 }
 
+type blockReader struct {
+	curOffset uint64
+	datablock []byte
+	s         *SquashFS
+}
+
+func newBlockReader(s *SquashFS, start, offset uint64) (io.Reader, error) {
+	reader := blockReader{
+		curOffset: start,
+		s:         s,
+	}
+
+	_, err := io.CopyN(ioutil.Discard, reader, int64(offset))
+	if err != nil {
+		return nil, err
+	}
+
+	return reader, nil
+}
+
+func (br blockReader) Read(p []byte) (int, error) {
+	if len(br.datablock) == 0 {
+		data, disksz, err := br.s.readMetadataBlockSingle(br.curOffset)
+		if err != nil {
+			return 0, err
+		}
+		br.curOffset += uint64(disksz)
+		br.datablock = data
+	}
+	n := copy(p, br.datablock)
+	br.datablock = br.datablock[n:]
+
+	return n, nil
+}
+
 func (s *SquashFS) readMetadataBlock(off uint64) ([]byte, error) {
-	data1, compressedLen, err := s.readMetadataBlockSingle(off)
+
+	r, err := newBlockReader(s, off, 0)
+	var buf = make([]byte, 1024*100)
+	_, err = io.ReadFull(r, buf)
 	if err != nil {
 		return nil, err
 	}
-	data2, _, err := s.readMetadataBlockSingle(off + uint64(compressedLen))
-	if err != nil {
-		return nil, err
-	}
-
-	ret := make([]byte, len(data1)+len(data2))
-	copy(ret, data1)
-	copy(ret[len(data1):], data2)
-
-	return ret, nil
+	return buf, nil
 }
 
 func (s *SquashFS) readMetadataBlockSingle(off uint64) ([]byte, int, error) {
