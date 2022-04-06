@@ -177,7 +177,7 @@ func (s *SquashFS) rootDir() ([]DirectoryEntry, error) {
 		sqfs:        s,
 		InodeNumber: h.InodeNumber,
 		Offset:      uint16(s.superblock.RootInodeRef & 0xFFFF),
-		Start:       uint32(s.superblock.RootInodeRef&0xFFFF0000) >> 16}
+		Start:       uint32((s.superblock.RootInodeRef & 0xFFFFFFFF0000) >> 16)}
 	dirList = append(dirList, this)
 	parent := this
 	parent.name = ".."
