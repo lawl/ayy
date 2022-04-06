@@ -41,7 +41,7 @@ func main() {
 				"  inspect            Inspect an AppImage file. Development command. Dumps assorted information.\n"+
 				"  help               Display this help\n"+
 				"\n"+
-				"Call this commands without any arguments for per command help.\n"+
+				"Call these commands without any arguments for per command help.\n"+
 				"\n")
 		flag.PrintDefaults()
 	}
