@@ -73,7 +73,11 @@ func (ai *AppImage) Close() {
 	ai.file.Close()
 }
 func (ai *AppImage) ELFSectionAsString(section string) (string, error) {
-	b, err := ai.elf.Section(section).Data()
+	sect := ai.elf.Section(section)
+	if sect == nil {
+		return "", fmt.Errorf("ELF section '%s' not found", section)
+	}
+	b, err := sect.Data()
 	if err != nil {
 		return "", err
 	}
