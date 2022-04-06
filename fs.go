@@ -40,7 +40,7 @@ func listFiles(aiPath, internalPath string, usebytes bool) {
 			}
 			target, err := ai.FS.Open(targetname)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Couldn't read symlink pointing to %s: %s", sqinfo.SymlinkTarget(), err)
+				fmt.Fprintf(os.Stderr, "Couldn't read symlink pointing to %s: %s", targetname, err)
 			}
 			targetstat, err := target.Stat()
 			if err != nil {

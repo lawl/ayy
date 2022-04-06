@@ -107,6 +107,18 @@ type DirectoryEntry struct {
 	sqfs        *SquashFS
 }
 
+type Directory struct {
+	header        DirectoryHeader
+	entries       []DirectoryEntry
+	pointingEntry DirectoryEntry
+	// the entry pointing at this directory
+	// the directory itself doesn't have a name and is just an inode
+	// so i think multiple entries could point to the same directory
+	// inode with different names, and the only way to have a name
+	// is to keep track of which DirectoryEntry pointed to this directory
+	// when the path was resolved
+}
+
 type BasicSymlink struct {
 	HardLinkCount uint32
 	TargetSize    uint32

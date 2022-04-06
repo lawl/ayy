@@ -3,6 +3,7 @@ package squashfs
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -356,7 +357,7 @@ func (f *FileInfo) stat() error {
 		f.size = int64(node.FileSize)
 	case ExtendedFile:
 		f.size = int64(node.FileSize)
-	case []DirectoryEntry:
+	case Directory:
 		f.size = 0
 	case BasicSymlink:
 		f.size = 0
@@ -405,4 +406,49 @@ func (d DirectoryEntry) Type() fs.FileMode {
 }
 func (d DirectoryEntry) Info() (fs.FileInfo, error) {
 	return fileInfoFromDirEntry(d.sqfs, d), nil
+}
+
+func (d Directory) Close() error {
+	return nil //noop
+}
+func (d Directory) Read(p []byte) (int, error) {
+	err := fs.PathError{}
+	err.Op = "read"
+	err.Err = errors.New("cannot Read() directory")
+	return 0, &err
+}
+func (d Directory) Stat() (fs.FileInfo, error) {
+	return DirInfo{dir: d, entry: d.pointingEntry}, nil
+}
+
+type DirInfo struct {
+	dir   Directory
+	entry DirectoryEntry
+	// the entry pointing at this directory
+	// the directory itself doesn't have a name and is just an inode
+	// so i think multiple entries could point to the same directory
+	// inode with different names, and the only way to have a name
+	// is to keep track of which DirectoryEntry pointed to this directory
+	// when the path was resolved
+}
+
+func (d DirInfo) Name() string {
+	return d.dir.pointingEntry.name
+}
+func (d DirInfo) Size() int64 {
+	return 0
+}
+func (d DirInfo) Mode() fs.FileMode {
+	return d.dir.pointingEntry.Type()
+}
+func (d DirInfo) ModTime() time.Time {
+	// directories have no mod time on the structs?!
+	// superblock does though
+	return time.Unix(int64(d.dir.pointingEntry.sqfs.superblock.ModificationTime), 0)
+}
+func (d DirInfo) IsDir() bool {
+	return true
+}
+func (d DirInfo) Sys() any {
+	return nil
 }

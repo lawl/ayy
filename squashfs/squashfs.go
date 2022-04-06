@@ -82,7 +82,7 @@ func (s *SquashFS) Open(name string) (fs.File, error) {
 		return nil, err
 	}
 
-	for _, entry := range dir {
+	for _, entry := range dir.entries {
 		if entry.name == filename {
 			_, iNode, err := s.readInode(uint64(entry.InodeNumber), uint64(entry.Offset), uint64(entry.Start))
 			if err != nil {
@@ -109,6 +109,8 @@ func (s *SquashFS) Open(name string) (fs.File, error) {
 					target = filepath.Join(dirname, node.TargetPath)
 				}
 				return s.Open(target)
+			case Directory:
+				return node, nil
 			default:
 				return nil, unimplemented(fmt.Sprintf("expected file to open() to be BasicFile or BasicSymlink, is %T", iNode))
 			}
@@ -118,21 +120,21 @@ func (s *SquashFS) Open(name string) (fs.File, error) {
 
 	return nil, &retErr
 }
-func resolveDirectory(s *SquashFS, dirname string) ([]DirectoryEntry, error) {
+func resolveDirectory(s *SquashFS, dirname string) (Directory, error) {
 	pathFragments := strings.Split(dirname, string(os.PathSeparator))
 	dir, err := s.rootDir()
 	if err != nil {
-		return nil, err
+		return dir, err
 	}
 	var parent DirectoryEntry
-	parent = dir[0] // "." of rootDir()
+	parent = dir.entries[0] // "." of rootDir()
 
 	for _, f := range pathFragments {
-		for _, entry := range dir {
+		for _, entry := range dir.entries {
 			if entry.name == f {
 				_, dirInode, err := s.readInode(uint64(entry.InodeNumber), uint64(entry.Offset), uint64(entry.Start))
 				if err != nil {
-					return nil, err
+					return dir, err
 				}
 				this := entry
 				this.name = "."
@@ -142,33 +144,32 @@ func resolveDirectory(s *SquashFS, dirname string) ([]DirectoryEntry, error) {
 				dirList = append(dirList, parent)
 				parent = entry
 
-				tmpDir, ok := dirInode.([]DirectoryEntry)
+				tmpDir, ok := dirInode.(Directory)
 
 				if !ok {
 					var retErr fs.PathError
 					retErr.Op = "open"
 					retErr.Err = errors.New(fmt.Sprintf("Inode is not a list of DirectoryEntry but %T", dirInode))
-					return nil, &retErr
+					return dir, &retErr
 				}
-				dirList = append(dirList, tmpDir...)
-				dir = dirList
+				dir.entries = append(dirList, tmpDir.entries...)
 			}
 		}
 	}
 	return dir, nil
 }
-func (s *SquashFS) rootDir() ([]DirectoryEntry, error) {
+func (s *SquashFS) rootDir() (Directory, error) {
 
 	h, entries, err := s.readInode(
 		s.superblock.RootInodeRef,
 		(s.superblock.RootInodeRef & 0xFFFF),
 		(s.superblock.RootInodeRef&0xFFFFFFFF0000)>>16)
 	if err != nil {
-		return nil, err
+		return Directory{}, err
 	}
-	de, ok := entries.([]DirectoryEntry)
+	de, ok := entries.(Directory)
 	if !ok {
-		return nil, errors.New("read inode, expected directory entry got something else")
+		return de, errors.New("read inode, expected directory entry got something else")
 	}
 	var dirList []DirectoryEntry
 	this := DirectoryEntry{
@@ -182,8 +183,8 @@ func (s *SquashFS) rootDir() ([]DirectoryEntry, error) {
 	parent := this
 	parent.name = ".."
 	dirList = append(dirList, parent)
-	dirList = append(dirList, de...)
-	return dirList, nil
+	de.entries = append(dirList, de.entries...)
+	return de, nil
 }
 
 func (s *SquashFS) ReadDir(name string) ([]fs.DirEntry, error) {
@@ -192,9 +193,9 @@ func (s *SquashFS) ReadDir(name string) ([]fs.DirEntry, error) {
 		return nil, err
 	}
 
-	result := make([]fs.DirEntry, len(dir))
+	result := make([]fs.DirEntry, len(dir.entries))
 	for i := 0; i < len(result); i++ {
-		result[i] = dir[i]
+		result[i] = dir.entries[i]
 	}
 	return result, nil
 }
@@ -206,12 +207,10 @@ func (s *SquashFS) readInode(inodeRef uint64, offset uint64, start uint64) (Inod
 	if err != nil {
 		return inodeHeader, nil, err
 	}
-
 	blockbuf := bytes.NewBuffer(block[offset:])
 	if err := binary.Read(blockbuf, binary.LittleEndian, &inodeHeader); err != nil {
 		return inodeHeader, nil, err
 	}
-
 	switch inodeHeader.InodeType {
 	case tBasicDirectory:
 		dir := BasicDirectory{}
@@ -284,7 +283,6 @@ func (s *SquashFS) readInode(inodeRef uint64, offset uint64, start uint64) (Inod
 		dir.IndexCount = tmp.IndexCount
 		dir.BlockOffset = tmp.BlockOffset
 		dir.XattrIdx = tmp.XattrIdx
-
 		dir.Index = make([]DirectoryIndex, dir.IndexCount)
 		for i := range dir.Index {
 			tmp := struct {
@@ -310,6 +308,9 @@ func (s *SquashFS) readInode(inodeRef uint64, offset uint64, start uint64) (Inod
 
 		}
 		de, err := readDirectoryTable(s, dir, dir.BlockStart, dir.BlockOffset, dir.FileSize)
+		if err == io.EOF {
+			err = nil
+		}
 		return inodeHeader, de, err
 
 		// so annoying
@@ -386,15 +387,16 @@ func (s *SquashFS) readInode(inodeRef uint64, offset uint64, start uint64) (Inod
 // again now even though they'd be on dir, because it's now T
 // could probably remove that with an interface?
 func readDirectoryTable[T BasicDirectory | ExtendedDirectory](
-	s *SquashFS, dir T, blockstart uint32, blockoffs uint16, fileSize uint32) ([]DirectoryEntry, error) {
+	s *SquashFS, dir T, blockstart uint32, blockoffs uint16, fileSize uint32) (Directory, error) {
 
 	superblock := s.superblock
 
 	directories := make([]DirectoryEntry, 0)
+	dirr := Directory{}
 
 	block, err := s.readMetadataBlock(superblock.DirectoryTableStart + uint64(blockstart))
 	if err != nil {
-		return nil, err
+		return Directory{}, err
 	}
 
 	// The extra 3 bytes are for a virtual "." and ".." item in each directory which is
@@ -406,6 +408,7 @@ func readDirectoryTable[T BasicDirectory | ExtendedDirectory](
 		len1 := blockbuf.Len()
 		dirHeader := DirectoryHeader{}
 		err = binary.Read(blockbuf, binary.LittleEndian, &dirHeader)
+		dirr.header = dirHeader
 
 		for i := 0; i < int(dirHeader.Count+1); i++ {
 			tmp := struct {
@@ -415,7 +418,7 @@ func readDirectoryTable[T BasicDirectory | ExtendedDirectory](
 				NameSize    uint16
 			}{}
 			if err := binary.Read(blockbuf, binary.LittleEndian, &tmp); err != nil {
-				return nil, err
+				return Directory{}, err
 			}
 
 			dirEntry := DirectoryEntry{}
@@ -426,10 +429,11 @@ func readDirectoryTable[T BasicDirectory | ExtendedDirectory](
 			dirEntry.InodeNumber = uint32(tmp.InodeOffset) + dirHeader.InodeNumber
 			dirEntry.dtype = tmp.Type
 			dirEntry.NameSize = tmp.NameSize
+
 			str := make([]byte, dirEntry.NameSize+1)
 
 			if err := binary.Read(blockbuf, binary.LittleEndian, &str); err != nil {
-				return nil, err
+				return Directory{}, err
 			}
 
 			dirEntry.name = string(str)
@@ -444,7 +448,9 @@ func readDirectoryTable[T BasicDirectory | ExtendedDirectory](
 		}
 	}
 
-	return directories, nil
+	dirr.entries = directories
+
+	return dirr, nil
 
 }
 
