@@ -29,22 +29,49 @@ func init() {
 }
 
 func main() {
-	//TODO properly use flags package everywhere here, and migrate help to flag.Usage?
-	if len(os.Args) < 2 {
-		globalHelp()
+
+	flag.Usage = func() {
+		fmt.Fprint(os.Stderr,
+			"usage ayy <command>\n"+
+				"\n"+
+				"  install            Install an AppImage and integrate it into the desktop environment\n"+
+				"  remove             Locate installed AppImage by name, uninstall and unintegrate it\n"+
+				"  update             Update all images in Applications folder\n"+
+				"  list               Display installed AppImages\n"+
+				"  show               Show details of an AppImage\n"+
+				"  fs                 Interact with an AppImage's internal filesystem\n"+
+				"  inspect            Inspect an AppImage file. Development command. Dumps assorted information.\n"+
+				"  help               Display this help\n"+
+				"\n"+
+				"Call this commands without any arguments for per command help.\n"+
+				"\n")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+
+	if flag.NArg() < 1 {
+		flag.Usage()
 		os.Exit(1)
 	}
 
-	switch os.Args[1] {
+	switch flag.Arg(0) {
 	case "inspect":
-		if len(os.Args) < 3 {
-			fmt.Fprintf(os.Stderr, "usage: ayy inspect /foo/bar.AppImage\n")
+		inspect := flag.NewFlagSet("inspect", flag.ExitOnError)
+		inspect.Usage = func() {
+			fmt.Fprintf(os.Stderr, "usage: ayy inspect /foo/bar.AppImage\n"+
+				"\n")
+			inspect.PrintDefaults()
+		}
+		inspect.Parse(flag.Args()[1:])
+
+		if inspect.NArg() < 1 {
+			inspect.Usage()
 			os.Exit(1)
 		}
 
 		fp := fancy.Print{}
 		fp.Color(fancy.Cyan)
-		for _, arg := range os.Args[2:] {
+		for _, arg := range inspect.Args() {
 			ai := ai(arg)
 			updInfo, err := ai.ELFSectionAsString(".upd_info")
 			if err != nil {
@@ -68,42 +95,70 @@ func main() {
 
 	case "fs":
 
-		fsHelp := "usage: ayy fs /foo/bar.AppImage command\n" +
-			"\n" +
-			"commands:\n" +
-			"  ls <path>          List files under the specified path inside the AppImage\n" +
-			"  cat <path>         Print the file at <path> inside the AppImage to stdout\n"
+		fs := flag.NewFlagSet("fs", flag.ExitOnError)
+		fs.Usage = func() {
+			fmt.Fprintf(os.Stderr,
+				"usage: ayy fs /foo/bar.AppImage command\n"+
+					"\n"+
+					"commands:\n"+
+					"  ls <path>          List files under the specified path inside the AppImage\n"+
+					"  cat <path>         Print the file at <path> inside the AppImage to stdout\n"+
+					"\n")
+			fs.PrintDefaults()
+		}
+		fs.Parse(flag.Args()[1:])
 
-		if len(os.Args) < 4 {
-			fmt.Fprintf(os.Stderr, fsHelp)
+		if fs.NArg() < 1 {
+			fs.Usage()
 			os.Exit(1)
 		}
-
-		switch os.Args[3] {
+		file := fs.Arg(0)
+		switch fs.Arg(1) {
 		case "ls":
 			ls := flag.NewFlagSet("ls", flag.ExitOnError)
+			ls.Usage = func() {
+				fmt.Fprintf(os.Stderr,
+					"usage: ayy fs /foo/bar.AppImage ls <path inside appimage>\n"+
+						"\n")
+				ls.PrintDefaults()
+			}
 			usebytes := ls.Bool("b", false, "Display sizes in bytes instead of human readable string")
-			if err := ls.Parse(os.Args[4:]); err != nil {
+			if err := ls.Parse(fs.Args()[2:]); err != nil {
 				fmt.Fprintf(os.Stderr, ERROR+"Unable to parse flags: %s\n", err)
 				os.Exit(1)
 			}
+			if ls.NArg() < 1 {
+				ls.Usage()
+				os.Exit(1)
+			}
+
 			for _, arg := range ls.Args() {
 				fmt.Printf("%s:\n", arg)
-				listFiles(os.Args[2], ls.Arg(0), *usebytes)
+				listFiles(file, ls.Arg(0), *usebytes)
 			}
 			os.Exit(0)
 		case "cat":
 			cat := flag.NewFlagSet("cat", flag.ExitOnError)
-			if err := cat.Parse(os.Args[4:]); err != nil {
+			cat.Usage = func() {
+				fmt.Fprintf(os.Stderr,
+					"usage: ayy fs /foo/bar.AppImage cat <path to file inside appimage>\n"+
+						"\n")
+				cat.PrintDefaults()
+			}
+			if err := cat.Parse(fs.Args()[2:]); err != nil {
 				fmt.Fprintf(os.Stderr, ERROR+"Unable to parse flags: %s\n", err)
 				os.Exit(1)
 			}
+			if cat.NArg() < 1 {
+				cat.Usage()
+				os.Exit(1)
+			}
 			for _, arg := range cat.Args() {
-				catFile(os.Args[2], arg)
+				catFile(file, arg)
 			}
 			os.Exit(0)
 		default:
-			fmt.Fprintf(os.Stderr, fsHelp)
+			fs.Usage()
 			os.Exit(1)
 		}
 
@@ -111,13 +166,22 @@ func main() {
 		fmt.Println("ayy lmao")
 		os.Exit(0)
 	case "install":
-		if len(os.Args) < 3 {
+		install := flag.NewFlagSet("install", flag.ExitOnError)
+		install.Usage = func() {
 			fmt.Fprintf(os.Stderr, "usage: ayy install /foo/bar.AppImage\n"+
 				"\n"+
-				"this is currently required to be a local path, but may also allow https urls in the future. Stay tuned.\n")
+				"this is currently required to be a local path, but may also allow https urls in the future. Stay tuned.\n"+
+				"\n")
+			install.PrintDefaults()
+		}
+		install.Parse(flag.Args()[1:])
+
+		if install.NArg() < 1 {
+			install.Usage()
 			os.Exit(1)
 		}
-		for _, arg := range os.Args[2:] {
+
+		for _, arg := range install.Args() {
 			id, err := integrate.MoveToApplications(arg, "")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, ERROR+"Cannot move AppImage to Application directory: %s\n", err)
@@ -131,18 +195,22 @@ func main() {
 		}
 		os.Exit(0)
 	case "remove":
-		if len(os.Args) < 3 {
+		remove := flag.NewFlagSet("remove", flag.ExitOnError)
+		id := remove.Bool("id", false, "use id instead of name")
+		remove.Usage = func() {
 			fmt.Fprintf(os.Stderr, "usage: ayy remove <name>\n"+
 				"\n"+
-				"Hint: Find names with 'ayy list'\n")
+				"Hint: Find names with 'ayy list'\n"+
+				"\n")
+			remove.PrintDefaults()
+		}
+		remove.Parse(flag.Args()[1:])
+
+		if remove.NArg() < 1 {
+			remove.Usage()
 			os.Exit(1)
 		}
-		remove := flag.NewFlagSet("remove", flag.ExitOnError)
-		id := remove.String("id", "", "use id instead of name")
-		if err := remove.Parse(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, ERROR+"Unable to parse flags: %s\n", err)
-			os.Exit(1)
-		}
+
 		for _, arg := range remove.Args() {
 			path := findAppImagefromCLIArgs(arg, *id)
 
@@ -156,8 +224,8 @@ func main() {
 			}
 		}
 		os.Exit(0)
-	case "update":
-		// TODO: support arguments, so that e.g. "ayy update foo bar" only updates foo and bar
+	case "upgrade":
+		// TODO: support arguments, so that e.g. "ayy upgrade foo bar" only updates foo and bar
 		appDir := filepath.Join(os.Getenv("HOME"), "Applications")
 		var appList []string
 		err := filepath.Walk(appDir, func(path string, info fs.FileInfo, err error) error {
@@ -170,18 +238,22 @@ func main() {
 		}
 		os.Exit(0)
 	case "show":
-		if len(os.Args) < 3 {
+		show := flag.NewFlagSet("show", flag.ExitOnError)
+		id := show.Bool("id", false, "use id instead of name")
+		show.Usage = func() {
 			fmt.Fprintf(os.Stderr, "usage: ayy show <name>\n"+
 				"\n"+
-				"Hint: Find names with 'ayy list'\n")
+				"Hint: Find names with 'ayy list'\n"+
+				"\n")
+			show.PrintDefaults()
+		}
+		show.Parse(flag.Args()[1:])
+
+		if show.NArg() < 1 {
+			show.Usage()
 			os.Exit(1)
 		}
-		show := flag.NewFlagSet("show", flag.ExitOnError)
-		id := show.String("id", "", "use id instead of name")
-		if err := show.Parse(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, ERROR+"Unable to parse flags: %s\n", err)
-			os.Exit(1)
-		}
+
 		for _, arg := range show.Args() {
 			path := findAppImagefromCLIArgs(arg, *id)
 			printAppImageDetails(path)
@@ -192,29 +264,12 @@ func main() {
 		listAppimages()
 		os.Exit(0)
 	case "help", "-h", "--help":
-		globalHelp()
+		flag.Usage()
 		os.Exit(0)
 	default:
-		globalHelp()
+		flag.Usage()
 		os.Exit(1)
 	}
-}
-
-func globalHelp() {
-	fmt.Fprint(os.Stderr,
-		"usage ayy <command>\n"+
-			"\n"+
-			"  install            Install an AppImage and integrate it into the desktop environment\n"+
-			"  remove             Locate installed AppImage by name, uninstall and unintegrate it\n"+
-			"  update             Update all images in Applications folder\n"+
-			"  list               Display installed AppImages\n"+
-			"  show               Show details of an AppImage\n"+
-			"  fs                 Interact with an AppImage's internal filesystem\n"+
-			"  inspect            Inspect an AppImage file. Development command. Dumps assorted information.\n"+
-			"  help               Display this help\n"+
-			"\n"+
-			"Call this commands without any arguments for per command help.\n"+
-			"")
 }
 
 func ai(path string) *appimage.AppImage {
@@ -305,9 +360,9 @@ func printAppImageDetails(path string) error {
 	return nil
 }
 
-func findAppImagefromCLIArgs(name, id string) string {
-	if id != "" {
-		path, found, err := integrate.FindImageById(appimage.AppImageID(id))
+func findAppImagefromCLIArgs(name string, id bool) string {
+	if id {
+		path, found, err := integrate.FindImageById(appimage.AppImageID(name))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, ERROR+"searching images: %s\n", err)
 			os.Exit(1)
@@ -315,7 +370,7 @@ func findAppImagefromCLIArgs(name, id string) string {
 		fp := fancy.Print{}
 		fp.Color(fancy.Cyan)
 		if !found {
-			fmt.Fprintf(os.Stderr, ERROR+"No image matching ID '%s' found\n", fp.Format(id))
+			fmt.Fprintf(os.Stderr, ERROR+"No image matching ID '%s' found\n", fp.Format(name))
 			os.Exit(1)
 		}
 
