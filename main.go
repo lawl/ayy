@@ -34,7 +34,7 @@ func main() {
 				"\n"+
 				"  install            Install an AppImage and integrate it into the desktop environment\n"+
 				"  remove             Locate installed AppImage by name, uninstall and unintegrate it\n"+
-				"  update             Update all images in Applications folder\n"+
+				"  upgrade            Update all images in Applications folder\n"+
 				"  list               Display installed AppImages\n"+
 				"  show               Show details of an AppImage\n"+
 				"  fs                 Interact with an AppImage's internal filesystem\n"+
