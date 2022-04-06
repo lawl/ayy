@@ -45,6 +45,12 @@ func New(reader *io.SectionReader) (*SquashFS, error) {
 	if superblock.Flags&UncompressedInodes == UncompressedInodes {
 		return nil, unimplemented("UncompressedInodes")
 	}
+	if superblock.Flags&UncompressedData == UncompressedData {
+		return nil, unimplemented("UncompressedData")
+	}
+	if superblock.Flags&UncompressedFragments == UncompressedFragments {
+		return nil, unimplemented("UncompressedData")
+	}
 
 	sqfs.reader = reader
 	sqfs.superblock = superblock
@@ -152,10 +158,11 @@ func resolveDirectory(s *SquashFS, dirname string) ([]DirectoryEntry, error) {
 	return dir, nil
 }
 func (s *SquashFS) rootDir() ([]DirectoryEntry, error) {
+
 	h, entries, err := s.readInode(
 		s.superblock.RootInodeRef,
 		(s.superblock.RootInodeRef & 0xFFFF),
-		(s.superblock.RootInodeRef&0xFFFF0000)>>16)
+		(s.superblock.RootInodeRef&0xFFFFFFFF0000)>>16)
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +485,9 @@ func uncompress(b []byte) ([]byte, error) {
 		return nil, err
 	}
 	var res bytes.Buffer
-	res.ReadFrom(r)
-
+	_, err = res.ReadFrom(r)
+	if err != nil {
+		return nil, err
+	}
 	return res.Bytes(), nil
 }
