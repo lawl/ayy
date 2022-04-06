@@ -210,7 +210,7 @@ func globalHelp() {
 			"  list               Display installed AppImages\n"+
 			"  show               Show details of an AppImage\n"+
 			"  fs                 Interact with an AppImage's internal filesystem\n"+
-			"  elf                Display metadata stored on the AppImage's ELF header\n"+
+			"  inspect            Inspect an AppImage file. Development command. Dumps assorted information.\n"+
 			"  help               Display this help\n"+
 			"\n"+
 			"Call this commands without any arguments for per command help.\n"+
