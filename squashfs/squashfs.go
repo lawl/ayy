@@ -287,9 +287,27 @@ func (s *SquashFS) readInode(inodeRef uint64, offset uint64, start uint64) (Inod
 
 		dir.Index = make([]DirectoryIndex, dir.IndexCount)
 		for i := range dir.Index {
-			if err := binary.Read(blockbuf, binary.LittleEndian, &dir.Index[i]); err != nil {
+			tmp := struct {
+				Index    uint32
+				Start    uint32
+				NameSize uint32
+			}{}
+
+			if err := binary.Read(blockbuf, binary.LittleEndian, &tmp); err != nil {
 				return inodeHeader, nil, err
 			}
+			dir.Index[i].Index = tmp.Index
+			dir.Index[i].Start = tmp.Start
+			dir.Index[i].NameSize = tmp.NameSize
+
+			str := make([]byte, tmp.NameSize+1)
+
+			if err := binary.Read(blockbuf, binary.LittleEndian, &str); err != nil {
+				return inodeHeader, nil, err
+			}
+
+			dir.Index[i].Name = string(str)
+
 		}
 		de, err := readDirectoryTable(s, dir, dir.BlockStart, dir.BlockOffset, dir.FileSize)
 		return inodeHeader, de, err
