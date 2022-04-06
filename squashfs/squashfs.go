@@ -205,15 +205,15 @@ func (s *SquashFS) readInode(inodeRef uint64, offset uint64, start uint64) (Inod
 	inodeHeader := InodeHeader{}
 	superblock := s.superblock
 
-	block, err := s.readMetadataBlock(superblock.InodeTableStart + start)
+	blockbuf, err := newBlockReader(s, superblock.InodeTableStart+start, offset)
 	if err != nil {
 		return inodeHeader, nil, err
 	}
-	blockbuf := bytes.NewBuffer(block[offset:])
 
 	if err := binary.Read(blockbuf, binary.LittleEndian, &inodeHeader); err != nil {
 		return inodeHeader, nil, err
 	}
+
 	switch inodeHeader.InodeType {
 	case tBasicDirectory:
 		dir := BasicDirectory{}
@@ -395,18 +395,17 @@ func readDirectoryTable[T BasicDirectory | ExtendedDirectory](
 	directories := make([]DirectoryEntry, 0)
 	dirr := Directory{}
 
-	block, err := s.readMetadataBlock(superblock.DirectoryTableStart + uint64(blockstart))
+	blockbuf, err := newBlockReader(s, superblock.DirectoryTableStart+uint64(blockstart), uint64(blockoffs))
 	if err != nil {
-		return Directory{}, err
+		return dirr, err
+	}
+	countingReader, ok := blockbuf.(*blockReader)
+	if !ok {
+		panic("Bug, countingReader, must be *blockReader")
 	}
 
-	// The extra 3 bytes are for a virtual "." and ".." item in each directory which is
-	// not written, but can be considered to be part of the logical size of the directory.
-	bytesRead := 3
-
-	blockbuf := bytes.NewBuffer(block[blockoffs:])
 	for {
-		len1 := blockbuf.Len()
+		//len1 := blockbuf.Len()
 		dirHeader := DirectoryHeader{}
 		err = binary.Read(blockbuf, binary.LittleEndian, &dirHeader)
 		dirr.header = dirHeader
@@ -441,10 +440,9 @@ func readDirectoryTable[T BasicDirectory | ExtendedDirectory](
 			directories = append(directories, dirEntry)
 		}
 
-		len2 := blockbuf.Len()
-
-		bytesRead = len1 - len2 + bytesRead
-		if !(bytesRead < int(fileSize)) {
+		// The extra 3 bytes are for a virtual "." and ".." item in each directory which is
+		// not written, but can be considered to be part of the logical size of the directory.
+		if !(countingReader.readCount+3 < int(fileSize)) {
 			break
 		}
 	}
@@ -459,10 +457,11 @@ type blockReader struct {
 	curOffset uint64
 	datablock []byte
 	s         *SquashFS
+	readCount int
 }
 
 func newBlockReader(s *SquashFS, start, offset uint64) (io.Reader, error) {
-	reader := blockReader{
+	reader := &blockReader{
 		curOffset: start,
 		s:         s,
 	}
@@ -472,12 +471,15 @@ func newBlockReader(s *SquashFS, start, offset uint64) (io.Reader, error) {
 		return nil, err
 	}
 
+	// discarded bytes must *not* be counter
+	reader.readCount = 0
+
 	return reader, nil
 }
 
-func (br blockReader) Read(p []byte) (int, error) {
+func (br *blockReader) Read(p []byte) (int, error) {
 	if len(br.datablock) == 0 {
-		data, disksz, err := br.s.readMetadataBlockSingle(br.curOffset)
+		data, disksz, err := br.s.readOneMetaBlock(br.curOffset)
 		if err != nil {
 			return 0, err
 		}
@@ -486,22 +488,11 @@ func (br blockReader) Read(p []byte) (int, error) {
 	}
 	n := copy(p, br.datablock)
 	br.datablock = br.datablock[n:]
-
+	br.readCount += n
 	return n, nil
 }
 
-func (s *SquashFS) readMetadataBlock(off uint64) ([]byte, error) {
-
-	r, err := newBlockReader(s, off, 0)
-	var buf = make([]byte, 1024*100)
-	_, err = io.ReadFull(r, buf)
-	if err != nil {
-		return nil, err
-	}
-	return buf, nil
-}
-
-func (s *SquashFS) readMetadataBlockSingle(off uint64) ([]byte, int, error) {
+func (s *SquashFS) readOneMetaBlock(off uint64) ([]byte, int, error) {
 	r := s.reader
 
 	r.Seek(int64(off), io.SeekStart)

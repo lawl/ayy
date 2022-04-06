@@ -143,7 +143,7 @@ func readFragment(f *File) ([]byte, error) {
 		return nil, err
 	}
 
-	block, _, err := sqfs.readMetadataBlockSingle(metablockoffset)
+	block, _, err := sqfs.readOneMetaBlock(metablockoffset)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +237,7 @@ func (s *SquashFS) ReadFile(bf BasicFile) ([]byte, error) {
 			return nil, err
 		}
 
-		block, _, err := s.readMetadataBlockSingle(metablockoffset)
+		block, _, err := s.readOneMetaBlock(metablockoffset)
 		if err != nil {
 			return nil, err
 		}
