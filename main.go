@@ -39,6 +39,7 @@ func main() {
 				"  remove             Locate installed AppImage by name, uninstall and unintegrate it\n"+
 				"  upgrade            Update all images in Applications folder\n"+
 				"  list               Display installed AppImages\n"+
+				"  alias              Manage aliases for AppImage in PATH\n"+
 				"  show               Show details of an AppImage\n"+
 				"  fs                 Interact with an AppImage's internal filesystem\n"+
 				"  inspect            Inspect an AppImage file. Development command. Dumps assorted information.\n"+
@@ -250,6 +251,44 @@ func main() {
 		os.Exit(0)
 	case "list":
 		listAppimages()
+		os.Exit(0)
+	case "alias":
+		alias := flag.NewFlagSet("alias", flag.ExitOnError)
+		id := alias.Bool("id", false, "use id instead of name")
+		add := alias.String("add", "", "Add an alias")
+		remove := alias.String("remove", "", "Remove an alias")
+		alias.Usage = func() {
+			fmt.Fprintf(os.Stderr, "usage: ayy alias <name>\n"+
+				"\n"+
+				"Hint: Find names with 'ayy list'\n"+
+				"\n")
+			alias.PrintDefaults()
+		}
+		alias.Parse(flag.Args()[1:])
+
+		if *remove != "" {
+			if err := integrate.RemovePathWrapper(*remove); err != nil {
+				fmt.Fprintf(os.Stderr, ERROR+"not removing wrapper: %s\n", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
+
+		if alias.NArg() < 1 {
+			alias.Usage()
+			os.Exit(1)
+		}
+
+		path := findAppImagefromCLIArgs(alias.Arg(0), *id)
+		if *add != "" {
+			if err := integrate.CreatePathWrapper(*add, path); err != nil {
+				fmt.Fprintf(os.Stderr, ERROR+"cannot create wrapper: %s\n", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
+
+		//printaliases()
 		os.Exit(0)
 	case "help", "-h", "--help":
 		flag.Usage()
