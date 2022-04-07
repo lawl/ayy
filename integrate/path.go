@@ -12,8 +12,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const wrapperHeader = "#!/bin/sh\n" +
@@ -79,4 +82,36 @@ func IsPathWrapper(path string) bool {
 	bstr := string(buf)
 
 	return wrapperHeader == bstr
+}
+
+type PathWrapperEntry struct {
+	WrapperPath  string
+	AppImagePath string
+}
+
+func ListPathWrappers() (paths []PathWrapperEntry) {
+	localbin := filepath.Join(os.Getenv("HOME"), ".local/bin")
+	var wrapperList []PathWrapperEntry
+	filepath.Walk(localbin, func(path string, info fs.FileInfo, err error) error {
+		if IsPathWrapper(path) {
+			var pwe PathWrapperEntry
+			pwe.WrapperPath = path
+			buf, err := ioutil.ReadFile(path)
+			if err != nil {
+				return nil // yes we want to swallow errors here
+			}
+			wrapper := string(buf)
+
+			// short of (basically deliberate) TOCTOU, [2] should be safe,
+			//since IsPathWrapper checks the header and guarantees 2 new lines
+			line := strings.TrimSpace(strings.Split(wrapper, "\n")[2])
+			line = strings.TrimSuffix(line, ` "$@"`)
+
+			pwe.AppImagePath = line
+			wrapperList = append(wrapperList, pwe)
+		}
+		return nil
+	})
+
+	return wrapperList
 }

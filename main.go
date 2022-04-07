@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -257,6 +258,7 @@ func main() {
 		id := alias.Bool("id", false, "use id instead of name")
 		add := alias.String("add", "", "Add an alias")
 		remove := alias.String("remove", "", "Remove an alias")
+		list := alias.Bool("list", false, "List all aliases")
 		alias.Usage = func() {
 			fmt.Fprintf(os.Stderr, "usage: ayy alias <name>\n"+
 				"\n"+
@@ -265,6 +267,25 @@ func main() {
 			alias.PrintDefaults()
 		}
 		alias.Parse(flag.Args()[1:])
+
+		if *list {
+			l := integrate.ListPathWrappers()
+			yellow := fancy.Print{}
+			yellow.Color(fancy.Yellow)
+			cyan := fancy.Print{}
+			cyan.Color(fancy.Cyan)
+			for _, pwe := range l {
+				wrapperName := path.Base(pwe.WrapperPath)
+				appName := pwe.AppImagePath
+				ai := ai(pwe.AppImagePath)
+				entryName := ai.DesktopEntry("Name")
+				if entryName != "" {
+					appName = cyan.Format(entryName)
+				}
+				fmt.Printf("%s %s %s\n", wrapperName, yellow.Format(" => "), appName)
+			}
+			os.Exit(0)
+		}
 
 		if *remove != "" {
 			if err := integrate.RemovePathWrapper(*remove); err != nil {
