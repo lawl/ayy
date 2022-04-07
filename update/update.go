@@ -139,7 +139,10 @@ func updaterFromUpdInfo(updInfo string, localPath string) Updater {
 			localPath:   localPath,
 		}
 	case "pling-v1-zsync":
-		panic("pling updater not implemented yet")
+		//no easy to find api docs, and they should just use regular https
+		//this should have never made the spec, refusing to implement
+		//also cannot find a single image on pling using this, so...
+		return nullUpdater{}
 	default:
 		return nullUpdater{}
 	}
