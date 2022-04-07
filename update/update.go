@@ -105,9 +105,28 @@ func (n nullUpdater) check() (url string, available bool, err error) { return ""
 func updaterFromUpdInfo(updInfo string, localPath string) Updater {
 	updInfo = strings.TrimSpace(updInfo)
 	spl := strings.Split(updInfo, "|")
+	for i := 0; i < len(spl); i++ {
+		spl[i] = strings.TrimSpace(spl[i])
+	}
 	switch spl[0] {
 	case "zsync":
-		panic("zsync updater not implemented yet")
+		if len(spl) < 2 {
+			return nullUpdater{}
+		}
+		purl, err := url.Parse(spl[1])
+		if err != nil {
+			return nullUpdater{}
+		}
+		//reject everything other than http for security reasons
+		//e.g. no http, which would be allowed by spec
+		//the spec only sais an URL...
+		if strings.ToLower(purl.Scheme) != "https" {
+			return nullUpdater{}
+		}
+		return httpsUpdater{
+			remoteZsync: spl[1],
+			localPath:   localPath,
+		}
 	case "gh-releases-zsync":
 		if len(spl) < 5 {
 			return nullUpdater{}
