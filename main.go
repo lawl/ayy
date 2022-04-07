@@ -7,9 +7,7 @@ import (
 	"ayy/update"
 	"flag"
 	"fmt"
-	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -224,16 +222,8 @@ func main() {
 		os.Exit(0)
 	case "upgrade":
 		// TODO: support arguments, so that e.g. "ayy upgrade foo bar" only updates foo and bar
-		appDir := filepath.Join(os.Getenv("HOME"), "Applications")
-		var appList []string
-		err := filepath.Walk(appDir, func(path string, info fs.FileInfo, err error) error {
-			appList = append(appList, path)
-			return nil
-		})
+		appList, _ := integrate.List()
 		parallelUpgrade(appList)
-		if err != nil {
-			panic(err)
-		}
 		os.Exit(0)
 	case "show":
 		show := flag.NewFlagSet("show", flag.ExitOnError)
@@ -284,10 +274,15 @@ func unrootPath(s string) string {
 }
 
 func listAppimages() {
-	appDir := filepath.Join(os.Getenv("HOME"), "Applications")
-	filepath.Walk(appDir, func(path string, info fs.FileInfo, err error) error {
-		return printAppImageDetails(path)
-	})
+	lst, nNotAI := integrate.List()
+
+	for _, v := range lst {
+		if err := printAppImageDetails(v); err != nil {
+			fmt.Fprintf(os.Stderr, ERROR+"Could not get details for AppImage: %'s'", v)
+		}
+	}
+	fmt.Println()
+	fmt.Fprintf(os.Stdout, INFO+"%d files in Application folder are not AppImages.\n", nNotAI)
 }
 
 func printAppImageDetails(path string) error {

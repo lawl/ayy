@@ -2,30 +2,17 @@ package integrate
 
 import (
 	"ayy/appimage"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 func FindImageById(id appimage.AppImageID) (path string, found bool, err error) {
-	appDir := filepath.Join(os.Getenv("HOME"), "Applications")
-	if err := ensureExists(appDir); err != nil {
-		return "", false, err
-	}
+	files, _ := List()
 
-	files, err := ioutil.ReadDir(appDir)
-	if err != nil {
-		return "", false, err
-	}
-
-	for _, info := range files {
-		curpath := filepath.Join(appDir, info.Name())
-		if info.IsDir() {
-			continue
-		}
-
-		ai, err := appimage.Open(curpath)
+	for _, file := range files {
+		ai, err := appimage.Open(file)
 		if err != nil {
 			continue
 		}
@@ -33,7 +20,7 @@ func FindImageById(id appimage.AppImageID) (path string, found bool, err error) 
 
 		curid := ai.ID()
 		if curid == id {
-			return curpath, true, nil
+			return file, true, nil
 		}
 	}
 
@@ -43,23 +30,10 @@ func FindImageById(id appimage.AppImageID) (path string, found bool, err error) 
 //FindImageByName scans images for the name the user deals with
 //case insensitive
 func FindImageByName(name string) (path string, found bool, err error) {
-	appDir := filepath.Join(os.Getenv("HOME"), "Applications")
-	if err := ensureExists(appDir); err != nil {
-		return "", false, err
-	}
+	files, _ := List()
 
-	files, err := ioutil.ReadDir(appDir)
-	if err != nil {
-		return "", false, err
-	}
-
-	for _, info := range files {
-		curpath := filepath.Join(appDir, info.Name())
-		if info.IsDir() {
-			continue
-		}
-
-		ai, err := appimage.Open(curpath)
+	for _, file := range files {
+		ai, err := appimage.Open(file)
 		if err != nil {
 			continue
 		}
@@ -67,8 +41,28 @@ func FindImageByName(name string) (path string, found bool, err error) {
 
 		curName := ai.DesktopEntry("Name")
 		if strings.ToLower(curName) == strings.ToLower(name) {
-			return curpath, true, nil
+			return file, true, nil
 		}
 	}
 	return "", false, nil
+}
+
+func AppDir() string {
+	return filepath.Join(os.Getenv("HOME"), "Applications")
+}
+
+func List() (list []string, nNotAppImage int) {
+	var appList []string
+	filepath.Walk(AppDir(), func(path string, info fs.FileInfo, err error) error {
+		ai, err := appimage.Open(path)
+		if err != nil {
+			nNotAppImage++
+			return nil
+		}
+		defer ai.Close()
+		appList = append(appList, path)
+		return nil
+	})
+
+	return appList, nNotAppImage
 }

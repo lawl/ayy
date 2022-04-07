@@ -62,7 +62,7 @@ func Integrate(appimgPath string) (err error) {
 		return err
 	}
 
-	appDir := filepath.Join(os.Getenv("HOME"), "Applications")
+	appDir := AppDir()
 	if err := ensureExists(appDir); err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func rewriteExecLine(exec, newbin string) string {
 
 //newPath may be an empty string, in that case MoveToApplications will decide this itself
 func MoveToApplications(appImagePath string, newPath string) (string, error) {
-	appDir := filepath.Join(os.Getenv("HOME"), "Applications")
+	appDir := AppDir()
 	if err := ensureExists(appDir); err != nil {
 		return "", err
 	}
