@@ -36,6 +36,13 @@ func Unintegrate(appimgPath string) error {
 		}
 	}
 
+	list := PathWrappersForAppImage(appimgPath)
+	for _, pwe := range list {
+		if err := os.Remove(pwe.WrapperPath); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
