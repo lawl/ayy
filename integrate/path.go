@@ -86,6 +86,7 @@ func IsPathWrapper(path string) bool {
 
 type PathWrapperEntry struct {
 	WrapperPath  string
+	WrapperName  string
 	AppImagePath string
 }
 
@@ -96,6 +97,8 @@ func ListPathWrappers() (paths []PathWrapperEntry) {
 		if IsPathWrapper(path) {
 			var pwe PathWrapperEntry
 			pwe.WrapperPath = path
+			pwe.WrapperName = filepath.Base(pwe.WrapperPath)
+
 			buf, err := ioutil.ReadFile(path)
 			if err != nil {
 				return nil // yes we want to swallow errors here
@@ -114,4 +117,15 @@ func ListPathWrappers() (paths []PathWrapperEntry) {
 	})
 
 	return wrapperList
+}
+
+func PathWrappersForAppImage(path string) []PathWrapperEntry {
+	ret := make([]PathWrapperEntry, 0)
+	list := ListPathWrappers()
+	for _, pwe := range list {
+		if pwe.AppImagePath == path {
+			ret = append(ret, pwe)
+		}
+	}
+	return ret
 }

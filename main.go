@@ -12,7 +12,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 )
@@ -275,7 +274,7 @@ func main() {
 			cyan := fancy.Print{}
 			cyan.Color(fancy.Cyan)
 			for _, pwe := range l {
-				wrapperName := path.Base(pwe.WrapperPath)
+				wrapperName := pwe.WrapperName
 				appName := pwe.AppImagePath
 				ai := ai(pwe.AppImagePath)
 				entryName := ai.DesktopEntry("Name")
@@ -382,13 +381,21 @@ func printAppImageDetails(path string) error {
 
 	hasOkSig := false
 
+	wrappers := integrate.PathWrappersForAppImage(path)
+	wrapperNames := make([]string, len(wrappers))
+	for i, pwe := range wrappers {
+		wrapperNames[i] = pwe.WrapperName
+	}
+	wrapperstr := strings.Join(wrapperNames, ", ")
+
 	fmt.Printf("Name: %s\n"+
 		"\t  Version: %s\n"+
 		"\tInstalled: %s\n"+
+		"\t  Aliases: %s\n"+
 		"\t     Path: %s\n"+
 		"\t       ID: %s\n"+
 		"",
-		cyan.Format(name), yellow.Format(version), installedStr, path, appstreamid)
+		cyan.Format(name), yellow.Format(version), installedStr, wrapperstr, path, appstreamid)
 
 	fmt.Print("\tSignature: ")
 	if ai.HasSignature() {
