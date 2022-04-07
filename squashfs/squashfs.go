@@ -150,7 +150,7 @@ func resolveDirectory(s *SquashFS, dirname string) (Directory, error) {
 				if !ok {
 					var retErr fs.PathError
 					retErr.Op = "open"
-					retErr.Err = errors.New(fmt.Sprintf("Inode is not a list of DirectoryEntry but %T", dirInode))
+					retErr.Err = errors.New(fmt.Sprintf("Inode is not a Directory but %T", dirInode))
 					return dir, &retErr
 				}
 				dir.entries = append(dirList, tmpDir.entries...)
@@ -240,7 +240,7 @@ func (s *SquashFS) readInode(inodeRef uint64, offset uint64, start uint64) (Inod
 
 		blkSzCount := bfile.FileSize / superblock.BlockSize
 
-		if !bfile.endsInFragment() { // does this file NOT end in a fragment?
+		if !bfile.endsInFragment() {
 			if bfile.FileSize%superblock.BlockSize != 0 {
 				blkSzCount++ // round up
 			}
