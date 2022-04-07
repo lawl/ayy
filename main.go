@@ -72,7 +72,7 @@ func main() {
 		}
 
 		fp := fancy.Print{}
-		fp.Color(fancy.Cyan)
+		fp.Color(fancy.Yellow)
 		for _, arg := range inspect.Args() {
 			ai := ai(arg)
 			updInfo, err := ai.ELFSectionAsString(".upd_info")
