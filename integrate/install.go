@@ -205,14 +205,10 @@ func rewriteExecLine(exec, newbin string) string {
 }
 
 //newPath may be an empty string, in that case MoveToApplications will decide this itself
-func MoveToApplications(appImagePath string, newPath string) (string, error) {
+func MoveToApplications(appImagePath string, newPath string) (retNewPath string, err error) {
 	appDir := AppDir()
 	if err := ensureExists(appDir); err != nil {
 		return "", err
-	}
-
-	if newPath == "" {
-		newPath = filepath.Join(appDir, filepath.Base(appImagePath))
 	}
 
 	ai, err := appimage.Open(appImagePath)
@@ -222,8 +218,17 @@ func MoveToApplications(appImagePath string, newPath string) (string, error) {
 	defer ai.Close()
 
 	//check if this is upgrading an existing image
-	path, found, err := FindImageById(ai.ID())
-	if found && err == nil {
+	path, foundExisting, err := FindImageById(ai.ID())
+
+	if newPath == "" {
+		if foundExisting {
+			newPath = path
+		} else {
+			newPath = filepath.Join(appDir, filepath.Base(appImagePath))
+		}
+	}
+
+	if foundExisting && err == nil {
 		newPath = path
 		oldai, err := appimage.Open(path)
 		if err != nil {
@@ -247,7 +252,7 @@ func MoveToApplications(appImagePath string, newPath string) (string, error) {
 				return "", fmt.Errorf("AppImage '%s', with ID '%s', has a signature that does not verify, WILL NOT PROCEED WITH INSTALLATION: %s", path, ai.ID(), err)
 			}
 		}
-	} else if found && err != nil {
+	} else if foundExisting && err != nil {
 		return "", fmt.Errorf("Found existing AppImage '%s', with same ID '%s', but an error occured, refusing installation for security reasons: %s", path, ai.ID(), err)
 	}
 
@@ -267,4 +272,19 @@ func IsIntegrated(ai *appimage.AppImage) bool {
 	desktop := DesktopFilePath(ai)
 
 	return exists(icon) && exists(desktop)
+}
+
+// Install installs the AppImage specified at appImagePath.
+// Optionally optionalNewPath may specify where. If an empty
+// string is supplied, the new path will be figure out automatically
+func Install(appImagePath, optionalNewPath string) (newPath string, err error) {
+	path, err := MoveToApplications(appImagePath, optionalNewPath)
+	if err != nil {
+		return "", err
+	}
+	err = Integrate(path)
+	if err != nil {
+		return "", err
+	}
+	return path, err
 }

@@ -178,14 +178,9 @@ func main() {
 		}
 
 		for _, arg := range install.Args() {
-			id, err := integrate.MoveToApplications(arg, "")
+			_, err := integrate.Install(arg, "")
 			if err != nil {
-				fmt.Fprintf(os.Stderr, ERROR+"Cannot move AppImage to Application directory: %s\n", err)
-				os.Exit(1)
-			}
-			err = integrate.Integrate(id)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, ERROR+"Cannot integrate app image: %s\n", err)
+				fmt.Fprintf(os.Stderr, ERROR+"Cannot install AppImage: %s\n", err)
 				os.Exit(1)
 			}
 		}
