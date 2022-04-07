@@ -1,10 +1,6 @@
 package appimage
 
 import (
-	"ayy/appstream"
-	"ayy/desktop"
-	"ayy/elf"
-	"ayy/squashfs"
 	"errors"
 	"fmt"
 	"io"
@@ -14,11 +10,16 @@ import (
 	"path"
 	"regexp"
 	"strings"
+
+	"github.com/lawl/ayy/appstream"
+	"github.com/lawl/ayy/desktop"
+	"github.com/lawl/ayy/elf"
+	"github.com/lawl/ayy/squashfs"
 )
 
 type AppImage struct {
 	ImageFormatType uint
-	FS              fs.FS
+	FS              *squashfs.SquashFS
 	elf             *elf.File
 	file            *os.File
 }

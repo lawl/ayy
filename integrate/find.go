@@ -1,11 +1,12 @@
 package integrate
 
 import (
-	"ayy/appimage"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/lawl/ayy/appimage"
 )
 
 func FindImageById(id appimage.AppImageID) (path string, found bool, err error) {

@@ -1,13 +1,14 @@
 package update
 
 import (
-	"ayy/fakezsync"
-	"ayy/parallel"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"path/filepath"
+
+	"github.com/lawl/ayy/fakezsync"
+	"github.com/lawl/ayy/parallel"
 )
 
 type release struct {

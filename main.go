@@ -1,12 +1,6 @@
 package main
 
 import (
-	"ayy/appimage"
-	"ayy/bytesz"
-	"ayy/fancy"
-	"ayy/integrate"
-	"ayy/squashfs"
-	"ayy/update"
 	"flag"
 	"fmt"
 	"io"
@@ -14,6 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/lawl/ayy/appimage"
+	"github.com/lawl/ayy/bytesz"
+	"github.com/lawl/ayy/fancy"
+	"github.com/lawl/ayy/integrate"
+	"github.com/lawl/ayy/squashfs"
+	"github.com/lawl/ayy/update"
 )
 
 var WARNING string

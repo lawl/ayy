@@ -1,9 +1,6 @@
 package update
 
 import (
-	"ayy/appimage"
-	"ayy/bytesz"
-	"ayy/integrate"
 	"crypto/sha1"
 	"fmt"
 	"io"
@@ -12,6 +9,10 @@ import (
 	"os"
 	"path"
 	"strings"
+
+	"github.com/lawl/ayy/appimage"
+	"github.com/lawl/ayy/bytesz"
+	"github.com/lawl/ayy/integrate"
 )
 
 type Progress struct {

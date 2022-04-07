@@ -1,9 +1,6 @@
 package integrate
 
 import (
-	"ayy/appimage"
-	"ayy/squashfs"
-	"ayy/xdg"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -12,6 +9,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/lawl/ayy/appimage"
+	"github.com/lawl/ayy/squashfs"
+	"github.com/lawl/ayy/xdg"
 )
 
 func Unintegrate(appimgPath string) error {

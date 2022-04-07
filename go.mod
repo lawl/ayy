@@ -1,4 +1,4 @@
-module ayy
+module github.com/lawl/ayy
 
 go 1.18
 

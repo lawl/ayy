@@ -1,9 +1,10 @@
 package update
 
 import (
-	"ayy/fakezsync"
-	"ayy/parallel"
 	"bytes"
+
+	"github.com/lawl/ayy/fakezsync"
+	"github.com/lawl/ayy/parallel"
 )
 
 type httpsUpdater struct {
