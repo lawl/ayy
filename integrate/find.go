@@ -55,6 +55,9 @@ func AppDir() string {
 func List() (list []string, nNotAppImage int) {
 	var appList []string
 	filepath.Walk(AppDir(), func(path string, info fs.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
 		ai, err := appimage.Open(path)
 		if err != nil {
 			nNotAppImage++

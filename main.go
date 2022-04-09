@@ -341,8 +341,10 @@ func listAppimages() {
 			fmt.Fprintf(os.Stderr, ERROR+"Could not get details for AppImage: %'s'", v)
 		}
 	}
-	fmt.Println()
-	fmt.Fprintf(os.Stdout, INFO+"%d files in Application folder are not AppImages.\n", nNotAI)
+	if nNotAI > 0 {
+		fmt.Println()
+		fmt.Fprintf(os.Stdout, INFO+"%d files in Application folder are not AppImages.\n", nNotAI)
+	}
 }
 
 func printAppImageDetails(path string) error {
