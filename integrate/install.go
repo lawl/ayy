@@ -264,7 +264,7 @@ func MoveToApplications(appImagePath string, newPath string) (retNewPath string,
 		return "", fmt.Errorf("Found existing AppImage '%s', with same ID '%s', but an error occured, refusing installation for security reasons: %s", path, ai.ID(), err)
 	}
 
-	err = os.Rename(appImagePath, newPath)
+	err = os.Link(appImagePath, newPath)
 	if err != nil {
 		return "", err
 	}
