@@ -93,7 +93,7 @@ func AppImage(aiPath string, ch chan Progress) {
 			return
 		}
 		ch <- Progress{Percent: 100, AppName: appName, Text: "Installing...", Err: nil}
-		_, err := integrate.Install(targetPath, aiPath)
+		_, err := integrate.Upgrade(targetPath, aiPath)
 		if err != nil {
 			ch <- Progress{Err: err, AppName: appName}
 			return

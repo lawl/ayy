@@ -213,7 +213,7 @@ func rewriteExecLine(exec, newbin string) string {
 }
 
 //newPath may be an empty string, in that case MoveToApplications will decide this itself
-func MoveToApplications(appImagePath string, newPath string) (retNewPath string, err error) {
+func MoveToApplications(appImagePath string, newPath string, replace bool) (retNewPath string, err error) {
 	appDir := AppDir()
 	if err := ensureExists(appDir); err != nil {
 		return "", err
@@ -263,8 +263,12 @@ func MoveToApplications(appImagePath string, newPath string) (retNewPath string,
 	} else if foundExisting && err != nil {
 		return "", fmt.Errorf("Found existing AppImage '%s', with same ID '%s', but an error occured, refusing installation for security reasons: %s", path, ai.ID(), err)
 	}
+	if replace {
+		err = os.Rename(appImagePath, newPath)
+	} else {
+		err = os.Link(appImagePath, newPath)
+	}
 
-	err = os.Link(appImagePath, newPath)
 	if err != nil {
 		return "", err
 	}
@@ -283,10 +287,28 @@ func IsIntegrated(ai *appimage.AppImage) bool {
 }
 
 // Install installs the AppImage specified at appImagePath.
+// the original file is left untouched.
 // Optionally optionalNewPath may specify where. If an empty
 // string is supplied, the new path will be figure out automatically
 func Install(appImagePath, optionalNewPath string) (newPath string, err error) {
-	path, err := MoveToApplications(appImagePath, optionalNewPath)
+	path, err := MoveToApplications(appImagePath, optionalNewPath, false)
+	if err != nil {
+		return "", err
+	}
+	err = Integrate(path)
+	if err != nil {
+		return "", err
+	}
+	return path, err
+}
+
+// Upgrade installs the AppImage specified at appImagePath, replacing
+// any existing file. and moving the specified appimage to the appropriate
+// location
+// Optionally optionalNewPath may specify where. If an empty
+// string is supplied, the new path will be figure out automatically
+func Upgrade(appImagePath, optionalNewPath string) (newPath string, err error) {
+	path, err := MoveToApplications(appImagePath, optionalNewPath, true)
 	if err != nil {
 		return "", err
 	}
