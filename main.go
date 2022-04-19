@@ -553,7 +553,7 @@ func parallelUpgrade(filesToProcess []string) {
 
 	for i, err := range errors {
 		if err != nil {
-			fmt.Printf(ERROR+"Processing '%s': %s", filesToProcess[i], err)
+			fmt.Printf(ERROR+"Processing '%s': %s\n", filesToProcess[i], err)
 		}
 	}
 }
