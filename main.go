@@ -336,10 +336,22 @@ func unrootPath(s string) string {
 func listAppimages() {
 	lst, nNotAI := integrate.List()
 
+	cyan := fancy.Print{}
+	cyan.Color(fancy.Cyan)
+
+	normal := fancy.Print{}
+
+	tbl := newTable(40, -1).withFormatters(cyan, normal)
+	tbl.printHead("Name", "ID")
 	for _, v := range lst {
-		if err := printAppImageDetails(v); err != nil {
-			fmt.Fprintf(os.Stderr, ERROR+"Could not get details for AppImage: %'s'", v)
-		}
+		ai := ai(v)
+		defer ai.Close()
+
+		name := ai.DesktopEntry("Name")
+		id := ai.ID()
+
+		tbl.printRow(name, string(id))
+
 	}
 	if nNotAI > 0 {
 		fmt.Println()
