@@ -22,6 +22,22 @@ type Progress struct {
 	Err     error
 }
 
+func Info(aiPath string) (Updater, error) {
+	ai, err := appimage.Open(aiPath)
+	if err != nil {
+		return nil, err
+	}
+	defer ai.Close()
+
+	updInfo, err := ai.ELFSectionAsString(".upd_info")
+	if err != nil {
+		return nil, err
+	}
+	updater := updaterFromUpdInfo(updInfo, aiPath)
+
+	return updater, nil
+}
+
 func AppImage(aiPath string, ch chan Progress) {
 	defer close(ch)
 
@@ -43,7 +59,7 @@ func AppImage(aiPath string, ch chan Progress) {
 
 	ch <- Progress{Percent: 0, Text: "Checking for updates", Err: nil}
 
-	at, updavail, err := updater.check()
+	at, updavail, err := updater.Check()
 	if err != nil {
 		ch <- Progress{Err: err, AppName: appName}
 		return
@@ -96,12 +112,19 @@ func AppImage(aiPath string, ch chan Progress) {
 }
 
 type Updater interface {
-	check() (url string, available bool, err error)
+	Check() (url string, available bool, err error)
+	InfoString() string
 }
 
 type nullUpdater struct{}
 
-func (n nullUpdater) check() (url string, available bool, err error) { return "", false, nil }
+func (n nullUpdater) Check() (url string, available bool, err error) { return "", false, nil }
+func (n nullUpdater) InfoString() string                             { return "no update information" }
+
+type plingUpdater struct{}
+
+func (n plingUpdater) Check() (url string, available bool, err error) { return "", false, nil }
+func (n plingUpdater) InfoString() string                             { return "pling not supported" }
 
 func updaterFromUpdInfo(updInfo string, localPath string) Updater {
 	updInfo = strings.TrimSpace(updInfo)
@@ -143,7 +166,7 @@ func updaterFromUpdInfo(updInfo string, localPath string) Updater {
 		//no easy to find api docs, and they should just use regular https
 		//this should have never made the spec, refusing to implement
 		//also cannot find a single image on pling using this, so...
-		return nullUpdater{}
+		return plingUpdater{}
 	default:
 		return nullUpdater{}
 	}

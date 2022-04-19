@@ -12,7 +12,10 @@ type httpsUpdater struct {
 	localPath   string
 }
 
-func (upd httpsUpdater) check() (url string, available bool, err error) {
+func (upd httpsUpdater) InfoString() string {
+	return "web: " + upd.remoteZsync
+}
+func (upd httpsUpdater) Check() (url string, available bool, err error) {
 	var zsync fakezsync.Zsync
 	var sha []byte
 	err = parallel.BailFast(func() error {

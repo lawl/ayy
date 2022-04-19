@@ -403,14 +403,20 @@ func printAppImageDetails(path string) error {
 	}
 	wrapperstr := strings.Join(wrapperNames, ", ")
 
+	updater, err := update.Info(path)
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("Name: %s\n"+
 		"\t  Version: %s\n"+
 		"\tInstalled: %s\n"+
 		"\t  Aliases: %s\n"+
+		"\t  Updates: %s\n"+
 		"\t     Path: %s\n"+
 		"\t       ID: %s\n"+
 		"",
-		cyan.Format(name), yellow.Format(version), installedStr, wrapperstr, path, appstreamid)
+		cyan.Format(name), yellow.Format(version), installedStr, wrapperstr, updater.InfoString(), path, appstreamid)
 
 	fmt.Print("\tSignature: ")
 	if ai.HasSignature() {
