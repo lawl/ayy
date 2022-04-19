@@ -178,7 +178,7 @@ func (ai *AppImage) ID() AppImageID {
 	if asid != "" {
 		return AppImageID(asid)
 	}
-	var sanitizer = regexp.MustCompile(`[^A-Za-z]`)
+	var sanitizer = regexp.MustCompile(`[^A-Za-z\-]`)
 	updInfo, err := ai.ELFSectionAsString(".upd_info")
 	if err == nil {
 		spl := strings.Split(updInfo, "|")
@@ -202,7 +202,7 @@ func (ai *AppImage) ID() AppImageID {
 			if len(spl) < 3 {
 				goto desktop
 			}
-			return AppImageID("ayy_gh-" + strings.ToLower(sanitizer.ReplaceAllString(spl[1]+spl[2], "")))
+			return AppImageID("ayy_gh-" + strings.ToLower(sanitizer.ReplaceAllString(spl[1]+"-"+spl[2]+"-"+spl[3], "")))
 		case "pling-v1-zsync":
 			if len(spl) < 2 {
 				goto desktop
