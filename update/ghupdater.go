@@ -116,7 +116,7 @@ func (ghu ghUpdater) Check() (url string, available bool, err error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", false, fmt.Errorf("http status: %d %s", resp.StatusCode, resp.Status)
+		return "", false, fmt.Errorf("couldn't fetch '%s' http status: %d %s", apiURL, resp.StatusCode, resp.Status)
 	}
 	jayson := release{}
 	if err = json.NewDecoder(resp.Body).Decode(&jayson); err != nil {
