@@ -538,7 +538,7 @@ func parallelUpgrade(filesToProcess []string) {
 			continue
 		}
 		if status.err != nil {
-			errors[status.jobindex] = status.err
+			errors[status.jobindex] = fmt.Errorf("Error updating '%s': %w\n", status.appname, status.err)
 			continue
 		}
 		fancy.CursorRestore()
@@ -551,9 +551,9 @@ func parallelUpgrade(filesToProcess []string) {
 
 	fancy.CursorRestore()
 
-	for i, err := range errors {
+	for _, err := range errors {
 		if err != nil {
-			fmt.Printf(ERROR+"Processing '%s': %s\n", filesToProcess[i], err)
+			fmt.Printf(ERROR+" %s\n", err)
 		}
 	}
 }
