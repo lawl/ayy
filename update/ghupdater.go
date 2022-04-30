@@ -109,7 +109,12 @@ func (ghu ghUpdater) InfoString() string {
 }
 
 func (ghu ghUpdater) Check() (url string, available bool, err error) {
-	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/%s", ghu.ghUsername, ghu.ghRepo, ghu.releaseName)
+	var apiURL string
+	if ghu.releaseName == "latest" { // latest isn't a tag, but it seems the other things images specify are tags?
+		apiURL = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/%s", ghu.ghUsername, ghu.ghRepo, ghu.releaseName)
+	} else {
+		apiURL = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/tags/%s", ghu.ghUsername, ghu.ghRepo, ghu.releaseName)
+	}
 	resp, err := http.Get(apiURL)
 	if err != nil {
 		return "", false, err
