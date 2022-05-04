@@ -65,9 +65,9 @@ func Integrate(appimgPath string) (err error) {
 		return errors.New("Couldn't find 'Desktop Entry' group in .desktop file. .desktop-less installs currently unsupported.")
 	}
 
-	icon, err := fs.ReadFile(ai.FS, ".DirIcon")
+	icon, err := findIcon(ai)
 	if err != nil {
-		return fmt.Errorf("Unable to read .DirIcon: %w", err)
+		return fmt.Errorf("Unable to find icon: ", err)
 	}
 
 	appDir := AppDir()
@@ -317,4 +317,21 @@ func Upgrade(appImagePath, optionalNewPath string) (newPath string, err error) {
 		return "", err
 	}
 	return path, err
+}
+
+func findIcon(ai *appimage.AppImage) ([]byte, error) {
+	icon, err := fs.ReadFile(ai.FS, ".DirIcon")
+	if err == nil {
+		return icon, nil
+	}
+
+	desktopIconName := ai.DesktopEntry("Icon")
+	endings := []string{"png", "svg", "svgz"}
+	for _, end := range endings {
+		icon, err := fs.ReadFile(ai.FS, desktopIconName+"."+end)
+		if err == nil {
+			return icon, nil
+		}
+	}
+	return nil, errors.New("Unable to find .DirIcon, or $APPICON.{png, svg, svgz}")
 }
