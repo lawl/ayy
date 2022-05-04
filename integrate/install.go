@@ -67,7 +67,7 @@ func Integrate(appimgPath string) (err error) {
 
 	icon, err := fs.ReadFile(ai.FS, ".DirIcon")
 	if err != nil {
-		return err
+		return fmt.Errorf("Unable to read .DirIcon: %w", err)
 	}
 
 	appDir := AppDir()
